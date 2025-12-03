@@ -1,0 +1,30 @@
+{
+  "filePath": ".spec-workflow/specs/platform-core/requirements.md",
+  "currentVersion": 3,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-01T13:50:48.120Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764597048115_b3wi1ri4c",
+      "approvalTitle": "Platform Core Requirements"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-01T13:53:15.470Z",
+      "trigger": "revision_requested",
+      "approvalId": "approval_1764597048115_b3wi1ri4c",
+      "approvalTitle": "Platform Core Requirements"
+    },
+    {
+      "version": 3,
+      "filename": "snapshot-003.json",
+      "timestamp": "2025-12-01T15:02:38.345Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764597314260_ahd9lwuao",
+      "approvalTitle": "平台核心模块需求文档"
+    }
+  ]
+}

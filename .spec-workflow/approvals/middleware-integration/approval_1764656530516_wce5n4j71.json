@@ -1,0 +1,12 @@
+{
+  "id": "approval_1764656530516_wce5n4j71",
+  "title": "Middleware Integration 需求文档 (含 MT5-Middleware 改动)",
+  "filePath": ".spec-workflow/specs/middleware-integration/requirements.md",
+  "type": "document",
+  "status": "approved",
+  "createdAt": "2025-12-02T06:22:10.516Z",
+  "category": "spec",
+  "categoryName": "middleware-integration",
+  "response": "通过仪表板批准",
+  "respondedAt": "2025-12-02T06:23:32.639Z"
+}

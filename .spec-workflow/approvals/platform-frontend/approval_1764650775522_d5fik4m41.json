@@ -1,0 +1,12 @@
+{
+  "id": "approval_1764650775522_d5fik4m41",
+  "title": "Platform Admin Console 需求文档",
+  "filePath": ".spec-workflow/specs/platform-frontend/requirements.md",
+  "type": "document",
+  "status": "rejected",
+  "createdAt": "2025-12-02T04:46:15.522Z",
+  "category": "spec",
+  "categoryName": "platform-frontend",
+  "response": "1.添加英文的支持\n2.ui需要现代风格",
+  "respondedAt": "2025-12-02T04:51:36.452Z"
+}

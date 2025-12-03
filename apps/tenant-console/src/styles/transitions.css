@@ -1,0 +1,215 @@
+/* Page Transitions */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity var(--transition-duration) var(--transition-timing);
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Slide Fade Transition */
+.slide-fade-enter-active {
+  transition: all var(--transition-duration) var(--transition-timing);
+}
+
+.slide-fade-leave-active {
+  transition: all var(--transition-duration) var(--transition-timing);
+}
+
+.slide-fade-enter-from {
+  transform: translateX(20px);
+  opacity: 0;
+}
+
+.slide-fade-leave-to {
+  transform: translateX(-20px);
+  opacity: 0;
+}
+
+/* Scale Transition */
+.scale-enter-active,
+.scale-leave-active {
+  transition: all var(--transition-duration) var(--transition-timing);
+}
+
+.scale-enter-from,
+.scale-leave-to {
+  transform: scale(0.95);
+  opacity: 0;
+}
+
+/* Expand Transition (for accordions, menus) */
+.expand-enter-active,
+.expand-leave-active {
+  transition: all var(--transition-duration) var(--transition-timing);
+  overflow: hidden;
+}
+
+.expand-enter-from,
+.expand-leave-to {
+  height: 0;
+  opacity: 0;
+}
+
+/* Sidebar Collapse Transition */
+.sidebar-collapse-enter-active,
+.sidebar-collapse-leave-active {
+  transition: width var(--transition-duration) var(--transition-timing),
+              padding var(--transition-duration) var(--transition-timing);
+}
+
+/* List Item Transition */
+.list-enter-active,
+.list-leave-active {
+  transition: all var(--transition-duration) var(--transition-timing);
+}
+
+.list-enter-from {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.list-move {
+  transition: transform var(--transition-duration) var(--transition-timing);
+}
+
+/* Bounce Transition */
+.bounce-enter-active {
+  animation: bounce-in var(--transition-duration);
+}
+
+.bounce-leave-active {
+  animation: bounce-in var(--transition-duration) reverse;
+}
+
+@keyframes bounce-in {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Loading Spinner */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Pulse Animation */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Skeleton Loading */
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--border-color) 25%,
+    var(--body-color) 50%,
+    var(--border-color) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+/* Price Flash Animation */
+@keyframes flash-green {
+  0% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(24, 160, 88, 0.2);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes flash-red {
+  0% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(208, 48, 80, 0.2);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.flash-up {
+  animation: flash-green 0.5s ease-out;
+}
+
+.flash-down {
+  animation: flash-red 0.5s ease-out;
+}
+
+/* Number Change Animation */
+@keyframes number-up {
+  0% {
+    color: var(--profit-color);
+    transform: translateY(-2px);
+  }
+  100% {
+    color: inherit;
+    transform: translateY(0);
+  }
+}
+
+@keyframes number-down {
+  0% {
+    color: var(--loss-color);
+    transform: translateY(2px);
+  }
+  100% {
+    color: inherit;
+    transform: translateY(0);
+  }
+}
+
+.number-change-up {
+  animation: number-up 0.3s ease-out;
+}
+
+.number-change-down {
+  animation: number-down 0.3s ease-out;
+}

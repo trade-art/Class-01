@@ -1,0 +1,218 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  # 检测变更的项目
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      platform-service: ${{ steps.changes.outputs.platform-service }}
+      tenant-api: ${{ steps.changes.outputs.tenant-api }}
+      platform-console: ${{ steps.changes.outputs.platform-console }}
+      tenant-console: ${{ steps.changes.outputs.tenant-console }}
+      shared: ${{ steps.changes.outputs.shared }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            platform-service:
+              - 'apps/platform-service/**'
+            tenant-api:
+              - 'apps/tenant-api/**'
+            platform-console:
+              - 'apps/platform-console/**'
+            tenant-console:
+              - 'apps/tenant-console/**'
+            shared:
+              - 'packages/shared/**'
+
+  # Platform Service 测试
+  platform-service:
+    name: Platform Service
+    needs: detect-changes
+    if: needs.detect-changes.outputs.platform-service == 'true' || needs.detect-changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/platform-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+        working-directory: .
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit Tests
+        run: npm run test:cov
+        env:
+          NODE_ENV: test
+
+      - name: E2E Tests
+        run: npm run test:e2e -- --forceExit
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-jwt-secret-key-for-ci-testing
+          JWT_EXPIRES_IN: 1h
+          JWT_REFRESH_EXPIRES_IN: 7d
+
+      - name: Build
+        run: npm run build
+
+  # Tenant API 测试
+  tenant-api:
+    name: Tenant API
+    needs: detect-changes
+    if: needs.detect-changes.outputs.tenant-api == 'true' || needs.detect-changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/tenant-api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+        working-directory: .
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit Tests
+        run: npm run test:cov
+        env:
+          NODE_ENV: test
+
+      - name: E2E Tests
+        run: npm run test:e2e -- --forceExit
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-jwt-secret-key-for-e2e-testing
+          JWT_REFRESH_SECRET: test-jwt-refresh-secret-key-for-e2e-testing
+          JWT_EXPIRES_IN: 1h
+          JWT_REFRESH_EXPIRES_IN: 7d
+
+      - name: Build
+        run: npm run build
+
+  # Platform Console 构建
+  platform-console:
+    name: Platform Console
+    needs: detect-changes
+    if: needs.detect-changes.outputs.platform-console == 'true' || needs.detect-changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/platform-console
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+        working-directory: .
+
+      - name: Type Check
+        run: npx vue-tsc --noEmit
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+
+  # Tenant Console 构建
+  tenant-console:
+    name: Tenant Console
+    needs: detect-changes
+    if: needs.detect-changes.outputs.tenant-console == 'true' || needs.detect-changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/tenant-console
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+        working-directory: .
+
+      - name: Type Check
+        run: npx vue-tsc --noEmit
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+
+  # 汇总检查
+  ci-success:
+    name: CI Success
+    needs: [platform-service, tenant-api, platform-console, tenant-console]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all jobs
+        run: |
+          echo "Platform Service: ${{ needs.platform-service.result }}"
+          echo "Tenant API: ${{ needs.tenant-api.result }}"
+          echo "Platform Console: ${{ needs.platform-console.result }}"
+          echo "Tenant Console: ${{ needs.tenant-console.result }}"
+
+          # 检查是否有任务失败（跳过的任务不算失败）
+          if [[ "${{ needs.platform-service.result }}" == "failure" ]] || \
+             [[ "${{ needs.tenant-api.result }}" == "failure" ]] || \
+             [[ "${{ needs.platform-console.result }}" == "failure" ]] || \
+             [[ "${{ needs.tenant-console.result }}" == "failure" ]]; then
+            echo "❌ CI failed"
+            exit 1
+          fi
+
+          echo "✅ CI passed"

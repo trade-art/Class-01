@@ -1,0 +1,83 @@
+/* Light Theme Variables */
+:root {
+  /* Primary Colors */
+  --primary-color: #18a058;
+  --primary-color-hover: #36ad6a;
+  --primary-color-pressed: #0c7a43;
+  --primary-color-suppl: #36ad6a;
+
+  /* Status Colors */
+  --success-color: #18a058;
+  --warning-color: #f0a020;
+  --error-color: #d03050;
+  --info-color: #2080f0;
+
+  /* Text Colors */
+  --text-color-base: #333639;
+  --text-color-secondary: #666666;
+  --text-color-tertiary: #999999;
+  --text-color-disabled: #c2c2c2;
+
+  /* Background Colors */
+  --body-color: #f5f7f9;
+  --card-color: #ffffff;
+  --modal-color: #ffffff;
+  --popover-color: #ffffff;
+
+  /* Border Colors */
+  --border-color: #e0e0e6;
+  --divider-color: #e0e0e6;
+
+  /* Shadow */
+  --box-shadow-1: 0 1px 2px -2px rgba(0, 0, 0, 0.08), 0 3px 6px 0 rgba(0, 0, 0, 0.06), 0 5px 12px 4px rgba(0, 0, 0, 0.04);
+  --box-shadow-2: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
+
+  /* Layout */
+  --header-height: 56px;
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 64px;
+
+  /* Border Radius */
+  --border-radius-small: 4px;
+  --border-radius-base: 6px;
+  --border-radius-large: 8px;
+
+  /* Transition */
+  --transition-duration: 0.3s;
+  --transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark Theme Variables */
+html.dark {
+  /* Primary Colors - slightly brighter for dark mode */
+  --primary-color: #63e2b7;
+  --primary-color-hover: #7fe7c4;
+  --primary-color-pressed: #5acea7;
+  --primary-color-suppl: #7fe7c4;
+
+  /* Status Colors */
+  --success-color: #63e2b7;
+  --warning-color: #f2c97d;
+  --error-color: #e88080;
+  --info-color: #70c0e8;
+
+  /* Text Colors */
+  --text-color-base: rgba(255, 255, 255, 0.9);
+  --text-color-secondary: rgba(255, 255, 255, 0.6);
+  --text-color-tertiary: rgba(255, 255, 255, 0.38);
+  --text-color-disabled: rgba(255, 255, 255, 0.24);
+
+  /* Background Colors */
+  --body-color: #101014;
+  --card-color: #18181c;
+  --modal-color: #18181c;
+  --popover-color: #48484e;
+
+  /* Border Colors */
+  --border-color: rgba(255, 255, 255, 0.09);
+  --divider-color: rgba(255, 255, 255, 0.09);
+
+  /* Shadow */
+  --box-shadow-1: 0 1px 2px -2px rgba(0, 0, 0, 0.24), 0 3px 6px 0 rgba(0, 0, 0, 0.18), 0 5px 12px 4px rgba(0, 0, 0, 0.12);
+  --box-shadow-2: 0 3px 6px -4px rgba(0, 0, 0, 0.36), 0 6px 16px 0 rgba(0, 0, 0, 0.24), 0 9px 28px 8px rgba(0, 0, 0, 0.15);
+}

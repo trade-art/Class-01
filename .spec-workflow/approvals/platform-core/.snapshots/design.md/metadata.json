@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/platform-core/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-01T15:04:52.344Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764601492341_2bkkaawyi",
+      "approvalTitle": "平台核心模块设计文档"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-01T15:14:03.154Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764601996199_vual92acv",
+      "approvalTitle": "平台核心模块设计文档 (含中间件集成)"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^@/(.*)$": "<rootDir>/../src/$1"
+  },
+  "setupFilesAfterEnv": ["<rootDir>/setup.ts"],
+  "testTimeout": 30000,
+  "verbose": true,
+  "collectCoverage": false,
+  "coverageDirectory": "<rootDir>/../coverage-e2e",
+  "coverageReporters": ["text", "lcov", "html"],
+  "reporters": [
+    "default",
+    ["jest-junit", {
+      "outputDirectory": "<rootDir>/../reports",
+      "outputName": "e2e-results.xml"
+    }]
+  ]
+}

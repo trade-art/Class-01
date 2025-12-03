@@ -1,0 +1,12 @@
+{
+  "id": "approval_1764654369071_z8umbkem4",
+  "title": "Middleware Integration Requirements Document",
+  "filePath": ".spec-workflow/specs/middleware-integration/requirements.md",
+  "type": "document",
+  "status": "rejected",
+  "createdAt": "2025-12-02T05:46:09.071Z",
+  "category": "spec",
+  "categoryName": "middleware-integration",
+  "response": "请结合中间件的实际代码重新审视一下E:\\MT5_Project\\MT5-middleware，这个中间件为了支持集成到saas平台肯定也得做一些改动，如有必要请为这个中间件也生成一个改动的任务列表",
+  "respondedAt": "2025-12-02T05:48:02.484Z"
+}

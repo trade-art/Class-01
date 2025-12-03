@@ -1,0 +1,376 @@
+// Prisma Schema for MT5 Platform
+// Multi-tenant SaaS architecture
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Platform Admin (Super Admin)
+// ============================================
+model PlatformAdmin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      PlatformRole @default(ADMIN)
+  isActive  Boolean  @default(true)
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("platform_admins")
+}
+
+enum PlatformRole {
+  SUPER_ADMIN
+  ADMIN
+  OPERATOR
+}
+
+// ============================================
+// Tenant (B2B Customer)
+// ============================================
+model Tenant {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique  // Unique tenant code for identification
+  email       String
+  phone       String?
+  company     String?
+
+  // White-label branding (REQ-3)
+  logo         String?  // Logo URL
+  displayName  String?  // Custom display name for tenant's console
+  primaryColor String?  // Primary theme color (hex format: #XXXXXX)
+
+  status      TenantStatus @default(PENDING)
+
+  // Subscription info
+  plan        SubscriptionPlan @default(BASIC)
+  maxInstances Int @default(1)
+  maxAdmins   Int @default(3)
+
+  // Billing
+  billingEmail String?
+  billingCycle BillingCycle @default(MONTHLY)
+
+  // Metadata
+  settings    Json?
+  notes       String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  expiresAt   DateTime?
+
+  // Relations
+  admins      TenantAdmin[]
+  instances   MiddlewareInstance[]
+  invoices    Invoice[]
+  apiKeys     ApiKey[]
+
+  @@map("tenants")
+}
+
+enum TenantStatus {
+  PENDING     // Awaiting approval
+  ACTIVE      // Active and operational
+  SUSPENDED   // Temporarily suspended
+  EXPIRED     // Subscription expired
+  CANCELLED   // Cancelled by tenant or admin
+}
+
+enum SubscriptionPlan {
+  TRIAL
+  BASIC
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+// ============================================
+// Tenant Admin (B2B Customer's Admin)
+// ============================================
+model TenantAdmin {
+  id        String   @id @default(uuid())
+  tenantId  String
+  email     String
+  password  String
+  name      String
+  role      TenantRole @default(ADMIN)
+  isActive  Boolean  @default(true)
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, email])
+  @@map("tenant_admins")
+}
+
+enum TenantRole {
+  OWNER       // Full access, can manage billing
+  ADMIN       // Can manage instances and traders
+  OPERATOR    // Read-only access
+}
+
+// ============================================
+// Middleware Instance
+// ============================================
+model MiddlewareInstance {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+
+  // Connection info
+  host        String
+  port        Int      @default(8080)
+  apiKey      String   // API key for this instance (encrypted)
+  useTls      Boolean  @default(false) // Use HTTPS for middleware communication
+
+  // MT5 Server info
+  mt5Servers  Json?    // Array of MT5 server configurations
+
+  // Status
+  status      InstanceStatus @default(OFFLINE)
+  lastHealthCheck DateTime?
+  lastCheckedAt   DateTime?  @map("last_checked_at")  // Last health check timestamp
+  healthData  Json?    // Latest health check data
+
+  // Enhanced fields for middleware-integration (Task 5)
+  instanceIdentifier   String?  @map("instance_identifier")  // Middleware's configured instance_id
+  webhookSecret        String?  @map("webhook_secret")       // Secret for webhook signature verification
+  latencyMs            Int?     @map("latency_ms")           // Last health check latency
+  errorMessage         String?  @map("error_message")        // Last error message
+  circuitBreakerState  CircuitBreakerState @default(CLOSED) @map("circuit_breaker_state")
+  consecutiveFailures  Int      @default(0) @map("consecutive_failures") // Health check failure count
+
+  // Limits
+  maxSessions Int      @default(100)
+  maxManagers Int      @default(10)
+
+  // Metadata
+  version     String?
+  settings    Json?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  events      InstanceEvent[]
+
+  @@map("middleware_instances")
+}
+
+enum CircuitBreakerState {
+  CLOSED
+  OPEN
+  HALF_OPEN
+}
+
+enum InstanceStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+  ERROR
+  DEGRADED
+}
+
+// ============================================
+// Instance Event Log (middleware-integration Task 5)
+// ============================================
+model InstanceEvent {
+  id          String   @id @default(uuid())
+  instanceId  String   @map("instance_id")
+  eventType   String   @map("event_type")  // status_change, circuit_breaker, mt5_disconnect, etc.
+  eventData   Json     @map("event_data")
+  severity    EventSeverity @default(INFO)
+  source      String   @default("platform") // platform, middleware, webhook
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  instance    MiddlewareInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@index([instanceId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("instance_events")
+}
+
+enum EventSeverity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+// ============================================
+// Invoice & Billing
+// ============================================
+model Invoice {
+  id          String   @id @default(uuid())
+  tenantId    String
+  invoiceNo   String   @unique
+
+  // Amount
+  amount      Decimal  @db.Decimal(10, 2)
+  currency    String   @default("USD")
+
+  // Period
+  periodStart DateTime
+  periodEnd   DateTime
+
+  // Status
+  status      InvoiceStatus @default(PENDING)
+  paidAt      DateTime?
+
+  // Details
+  items       Json?    // Line items
+  notes       String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  dueDate     DateTime
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+// ============================================
+// API Keys for Tenant
+// ============================================
+model ApiKey {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  key         String   @unique
+  hashedKey   String   // Hashed version for storage
+
+  // Permissions
+  permissions Json?    // Array of allowed permissions
+
+  // Limits
+  rateLimit   Int      @default(1000)  // Requests per minute
+
+  // Status
+  isActive    Boolean  @default(true)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}
+
+// ============================================
+// System Settings
+// ============================================
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  category  String   @default("general")
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+// ============================================
+// Tenant API - Risk Alert (风控预警)
+// ============================================
+model RiskAlert {
+  id        String         @id @default(uuid())
+  tenantId  String         @map("tenant_id")
+  type      RiskAlertType
+  level     RiskAlertLevel
+  message   String
+  data      Json?
+  isRead    Boolean        @default(false) @map("is_read")
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@map("risk_alerts")
+}
+
+enum RiskAlertType {
+  LARGE_TRADE       // 大额交易
+  LOW_MARGIN        // 低保证金
+  HIGH_FREQUENCY    // 高频交易
+  ABNORMAL_PROFIT   // 异常盈利
+}
+
+enum RiskAlertLevel {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+// ============================================
+// Tenant API - Risk Config (风控配置)
+// ============================================
+model RiskConfig {
+  id                  String   @id @default(uuid())
+  tenantId            String   @unique @map("tenant_id")
+  largeTradeThreshold Decimal  @default(100000) @map("large_trade_threshold") @db.Decimal(15, 2)
+  lowMarginThreshold  Decimal  @default(50) @map("low_margin_threshold") @db.Decimal(5, 2) // 百分比
+  highFrequencyLimit  Int      @default(100) @map("high_frequency_limit") // 每分钟
+  isEnabled           Boolean  @default(true) @map("is_enabled")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("risk_configs")
+}
+
+// ============================================
+// Tenant API - Admin Favorite Symbol (管理员自选品种)
+// ============================================
+model AdminFavoriteSymbol {
+  id        String   @id @default(uuid())
+  adminId   String   @map("admin_id")
+  symbol    String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([adminId, symbol])
+  @@map("admin_favorite_symbols")
+}
+
+// ============================================
+// Tenant API - Notification Setting (通知设置)
+// ============================================
+model NotificationSetting {
+  id               String   @id @default(uuid())
+  tenantId         String   @unique @map("tenant_id")
+  riskAlertEmail   Boolean  @default(true) @map("risk_alert_email")
+  systemAlertEmail Boolean  @default(true) @map("system_alert_email")
+  webhookUrl       String?  @map("webhook_url")
+  webhookEnabled   Boolean  @default(false) @map("webhook_enabled")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("notification_settings")
+}

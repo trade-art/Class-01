@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/platform-core/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-01T15:16:55.581Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764602215575_7lixgyxnv",
+      "approvalTitle": "平台核心模块任务文档"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-01T15:22:58.112Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764602551532_ur66yvja1",
+      "approvalTitle": "Tasks 文档 - 已添加交易数据模块任务"
+    }
+  ]
+}

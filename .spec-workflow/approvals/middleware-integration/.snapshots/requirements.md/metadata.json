@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/middleware-integration/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-02T05:46:09.076Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764654369071_z8umbkem4",
+      "approvalTitle": "Middleware Integration Requirements Document"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-02T06:23:32.633Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764656530516_wce5n4j71",
+      "approvalTitle": "Middleware Integration 需求文档 (含 MT5-Middleware 改动)"
+    }
+  ]
+}

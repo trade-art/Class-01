@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/middleware-integration/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-02T06:33:23.862Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764657203855_n6mfpebxr",
+      "approvalTitle": "Middleware Integration Tasks Document"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-02T06:33:41.018Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764657203855_n6mfpebxr",
+      "approvalTitle": "Middleware Integration Tasks Document"
+    }
+  ]
+}

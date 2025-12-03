@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/tenant-api/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-02T15:55:28.199Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764690928188_ohc5hlqzm",
+      "approvalTitle": "Tenant API Service 任务清单"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-02T15:55:54.851Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764690928188_ohc5hlqzm",
+      "approvalTitle": "Tenant API Service 任务清单"
+    }
+  ]
+}

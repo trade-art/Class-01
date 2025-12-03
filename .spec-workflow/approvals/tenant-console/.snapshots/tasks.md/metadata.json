@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/tenant-console/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-02T05:42:24.172Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764654144159_zy8eqrjso",
+      "approvalTitle": "Tenant Console Tasks Document"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-02T05:44:13.739Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764654144159_zy8eqrjso",
+      "approvalTitle": "Tenant Console Tasks Document"
+    }
+  ]
+}

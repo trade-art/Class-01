@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/tenant-api/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-02T15:42:58.328Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764690178316_bymxb7apn",
+      "approvalTitle": "Tenant API Service Requirements"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-02T15:45:15.379Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764690178316_bymxb7apn",
+      "approvalTitle": "Tenant API Service Requirements"
+    }
+  ]
+}

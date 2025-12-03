@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/platform-service-contract-tests/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-03T10:22:03.207Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764757323195_0dj3wwe3x",
+      "approvalTitle": "Platform Service 契约测试任务文档"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-03T10:22:18.211Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764757323195_0dj3wwe3x",
+      "approvalTitle": "Platform Service 契约测试任务文档"
+    }
+  ]
+}

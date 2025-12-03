@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/tenant-console/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-02T05:33:01.380Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764653581360_0dpf3dzri",
+      "approvalTitle": "Tenant Console Requirements Document"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-02T05:35:00.077Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764653581360_0dpf3dzri",
+      "approvalTitle": "Tenant Console Requirements Document"
+    }
+  ]
+}

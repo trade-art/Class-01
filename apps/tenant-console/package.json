@@ -1,0 +1,39 @@
+{
+  "name": "@mt5-platform/tenant-console",
+  "version": "1.0.0",
+  "description": "MT5 Tenant Console - Tenant admin web interface for trading management",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
+    "type-check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@vueuse/core": "^10.7.1",
+    "axios": "^1.6.5",
+    "dayjs": "^1.11.10",
+    "echarts": "^5.5.0",
+    "naive-ui": "^2.39.0",
+    "pinia": "^2.1.7",
+    "pinia-plugin-persistedstate": "^3.2.1",
+    "vue": "^3.4.15",
+    "vue-i18n": "^9.9.0",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "@iconify-json/carbon": "^1.1.28",
+    "@types/node": "^20.10.6",
+    "@unocss/preset-icons": "^0.58.0",
+    "@vitejs/plugin-vue": "^5.0.3",
+    "@vue/eslint-config-typescript": "^12.0.0",
+    "eslint": "^8.56.0",
+    "eslint-plugin-vue": "^9.20.1",
+    "typescript": "^5.3.3",
+    "unocss": "^0.58.0",
+    "vite": "^5.0.11",
+    "vue-tsc": "^3.1.5"
+  }
+}

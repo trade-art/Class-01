@@ -1,0 +1,789 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="384" failures="0" errors="0" time="3.905">
+  <testsuite name="Instances 模块契约测试 (e2e)" errors="0" failures="0" skipped="0" timestamp="2025-12-03T14:07:20" time="3.119" tests="44">
+    <testcase classname="Instances 模块契约测试 (e2e) 认证和授权 无认证 token 应返回 401" name="Instances 模块契约测试 (e2e) 认证和授权 无认证 token 应返回 401" time="0.02">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) 认证和授权 无效 token 应返回 401" name="Instances 模块契约测试 (e2e) 认证和授权 无效 token 应返回 401" time="0.006">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) 认证和授权 过期 token 应返回 401" name="Instances 模块契约测试 (e2e) 认证和授权 过期 token 应返回 401" time="0.005">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) 认证和授权 Tenant Admin 访问 instances 应返回 403" name="Instances 模块契约测试 (e2e) 认证和授权 Tenant Admin 访问 instances 应返回 403" time="0.005">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) GET /instances - 获取实例列表 应能获取分页实例列表" name="Instances 模块契约测试 (e2e) GET /instances - 获取实例列表 应能获取分页实例列表" time="0.009">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) GET /instances - 获取实例列表 应能按状态筛选实例" name="Instances 模块契约测试 (e2e) GET /instances - 获取实例列表 应能按状态筛选实例" time="0.008">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) GET /instances - 获取实例列表 应能按租户 ID 筛选实例" name="Instances 模块契约测试 (e2e) GET /instances - 获取实例列表 应能按租户 ID 筛选实例" time="0.004">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) GET /instances - 获取实例列表 应能搜索实例" name="Instances 模块契约测试 (e2e) GET /instances - 获取实例列表 应能搜索实例" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) GET /instances/stats - 获取实例统计 应能获取实例统计数据" name="Instances 模块契约测试 (e2e) GET /instances/stats - 获取实例统计 应能获取实例统计数据" time="0.002">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) GET /instances/:id - 获取实例详情 应能获取实例详情" name="Instances 模块契约测试 (e2e) GET /instances/:id - 获取实例详情 应能获取实例详情" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) GET /instances/:id - 获取实例详情 不存在的实例应返回 404" name="Instances 模块契约测试 (e2e) GET /instances/:id - 获取实例详情 不存在的实例应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) GET /instances/tenant/:tenantId - 获取租户实例 应能获取指定租户的所有实例" name="Instances 模块契约测试 (e2e) GET /instances/tenant/:tenantId - 获取租户实例 应能获取指定租户的所有实例" time="0.004">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances - 创建实例 应能创建新实例" name="Instances 模块契约测试 (e2e) POST /instances - 创建实例 应能创建新实例" time="0.009">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances - 创建实例 缺少必填字段应返回 400" name="Instances 模块契约测试 (e2e) POST /instances - 创建实例 缺少必填字段应返回 400" time="0.004">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances - 创建实例 不存在的租户应返回 404" name="Instances 模块契约测试 (e2e) POST /instances - 创建实例 不存在的租户应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances - 创建实例 应能创建带 MT5 服务器配置的实例" name="Instances 模块契约测试 (e2e) POST /instances - 创建实例 应能创建带 MT5 服务器配置的实例" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) PATCH /instances/:id - 更新实例 应能更新实例信息" name="Instances 模块契约测试 (e2e) PATCH /instances/:id - 更新实例 应能更新实例信息" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) PATCH /instances/:id - 更新实例 应能更新实例状态" name="Instances 模块契约测试 (e2e) PATCH /instances/:id - 更新实例 应能更新实例状态" time="0.002">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) PATCH /instances/:id - 更新实例 不存在的实例应返回 404" name="Instances 模块契约测试 (e2e) PATCH /instances/:id - 更新实例 不存在的实例应返回 404" time="0.005">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) DELETE /instances/:id - 删除实例 应能删除实例" name="Instances 模块契约测试 (e2e) DELETE /instances/:id - 删除实例 应能删除实例" time="0.002">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) DELETE /instances/:id - 删除实例 不存在的实例应返回 404" name="Instances 模块契约测试 (e2e) DELETE /instances/:id - 删除实例 不存在的实例应返回 404" time="0.005">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances/:id/regenerate-key - 重新生成 API Key 应能重新生成 API Key" name="Instances 模块契约测试 (e2e) POST /instances/:id/regenerate-key - 重新生成 API Key 应能重新生成 API Key" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances/:id/regenerate-key - 重新生成 API Key 不存在的实例应返回 404" name="Instances 模块契约测试 (e2e) POST /instances/:id/regenerate-key - 重新生成 API Key 不存在的实例应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances/:id/health-check - 实例健康检查 健康检查成功应返回 online 状态" name="Instances 模块契约测试 (e2e) POST /instances/:id/health-check - 实例健康检查 健康检查成功应返回 online 状态" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances/:id/health-check - 实例健康检查 健康检查失败应返回 offline/error 状态" name="Instances 模块契约测试 (e2e) POST /instances/:id/health-check - 实例健康检查 健康检查失败应返回 offline/error 状态" time="0.002">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances/:id/health-check - 实例健康检查 不存在的实例应返回 404" name="Instances 模块契约测试 (e2e) POST /instances/:id/health-check - 实例健康检查 不存在的实例应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances/health-check/all - 批量健康检查 应能执行批量健康检查" name="Instances 模块契约测试 (e2e) POST /instances/health-check/all - 批量健康检查 应能执行批量健康检查" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) GET /instances/tenant/:tenantId/quota - 获取租户配额 应能获取租户配额使用情况" name="Instances 模块契约测试 (e2e) GET /instances/tenant/:tenantId/quota - 获取租户配额 应能获取租户配额使用情况" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) GET /instances/tenant/:tenantId/quota - 获取租户配额 不存在的租户应返回 404" name="Instances 模块契约测试 (e2e) GET /instances/tenant/:tenantId/quota - 获取租户配额 不存在的租户应返回 404" time="0.002">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) GET /instances/:id/mt5-servers - 获取 MT5 服务器配置 应能获取实例的 MT5 服务器列表" name="Instances 模块契约测试 (e2e) GET /instances/:id/mt5-servers - 获取 MT5 服务器配置 应能获取实例的 MT5 服务器列表" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) GET /instances/:id/mt5-servers - 获取 MT5 服务器配置 不存在的实例应返回 404" name="Instances 模块契约测试 (e2e) GET /instances/:id/mt5-servers - 获取 MT5 服务器配置 不存在的实例应返回 404" time="0.002">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) PATCH /instances/:id/mt5-servers - 更新 MT5 服务器配置 应能更新 MT5 服务器配置" name="Instances 模块契约测试 (e2e) PATCH /instances/:id/mt5-servers - 更新 MT5 服务器配置 应能更新 MT5 服务器配置" time="0.004">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) PATCH /instances/:id/mt5-servers - 更新 MT5 服务器配置 多个默认服务器应返回 400" name="Instances 模块契约测试 (e2e) PATCH /instances/:id/mt5-servers - 更新 MT5 服务器配置 多个默认服务器应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances/:id/mt5-servers - 添加 MT5 服务器 应能添加 MT5 服务器" name="Instances 模块契约测试 (e2e) POST /instances/:id/mt5-servers - 添加 MT5 服务器 应能添加 MT5 服务器" time="0.002">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances/:id/mt5-servers - 添加 MT5 服务器 重复服务器名称应返回 400" name="Instances 模块契约测试 (e2e) POST /instances/:id/mt5-servers - 添加 MT5 服务器 重复服务器名称应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) DELETE /instances/:id/mt5-servers/:serverName - 删除 MT5 服务器 应能删除 MT5 服务器" name="Instances 模块契约测试 (e2e) DELETE /instances/:id/mt5-servers/:serverName - 删除 MT5 服务器 应能删除 MT5 服务器" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) DELETE /instances/:id/mt5-servers/:serverName - 删除 MT5 服务器 不存在的服务器应返回 404" name="Instances 模块契约测试 (e2e) DELETE /instances/:id/mt5-servers/:serverName - 删除 MT5 服务器 不存在的服务器应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances/:id/mt5-servers/:serverName/set-default - 设置默认 MT5 服务器 应能设置默认 MT5 服务器" name="Instances 模块契约测试 (e2e) POST /instances/:id/mt5-servers/:serverName/set-default - 设置默认 MT5 服务器 应能设置默认 MT5 服务器" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances/:id/mt5-servers/:serverName/set-default - 设置默认 MT5 服务器 不存在的服务器应返回 404" name="Instances 模块契约测试 (e2e) POST /instances/:id/mt5-servers/:serverName/set-default - 设置默认 MT5 服务器 不存在的服务器应返回 404" time="0.002">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances/:id/mt5-servers/:serverName/test - 测试 MT5 服务器连接 连接测试成功应返回 success=true" name="Instances 模块契约测试 (e2e) POST /instances/:id/mt5-servers/:serverName/test - 测试 MT5 服务器连接 连接测试成功应返回 success=true" time="0.003">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances/:id/mt5-servers/:serverName/test - 测试 MT5 服务器连接 连接测试失败应返回 success=false" name="Instances 模块契约测试 (e2e) POST /instances/:id/mt5-servers/:serverName/test - 测试 MT5 服务器连接 连接测试失败应返回 success=false" time="0.004">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) POST /instances/:id/mt5-servers/:serverName/test - 测试 MT5 服务器连接 不存在的服务器应返回 404" name="Instances 模块契约测试 (e2e) POST /instances/:id/mt5-servers/:serverName/test - 测试 MT5 服务器连接 不存在的服务器应返回 404" time="0.004">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) 权限级别测试 ADMIN 角色应能访问实例列表" name="Instances 模块契约测试 (e2e) 权限级别测试 ADMIN 角色应能访问实例列表" time="0.002">
+    </testcase>
+    <testcase classname="Instances 模块契约测试 (e2e) 权限级别测试 OPERATOR 角色应能访问实例列表" name="Instances 模块契约测试 (e2e) 权限级别测试 OPERATOR 角色应能访问实例列表" time="0.004">
+    </testcase>
+  </testsuite>
+  <testsuite name="Webhook 模块契约测试 (e2e)" errors="0" failures="0" skipped="0" timestamp="2025-12-03T14:07:20" time="3.111" tests="37">
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 应能接收有效签名的 Webhook 事件" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 应能接收有效签名的 Webhook 事件" time="0.047">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 缺少签名头应返回 400" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 缺少签名头应返回 400" time="0.006">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 缺少时间戳头应返回 400" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 缺少时间戳头应返回 400" time="0.005">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 缺少实例 ID 头应返回 400" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 缺少实例 ID 头应返回 400" time="0.005">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 无效签名应返回 401" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 无效签名应返回 401" time="0.004">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 过期时间戳应返回 401" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 过期时间戳应返回 401" time="0.003">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 实例不存在应返回 401" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 实例不存在应返回 401" time="0.003">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 实例未配置 webhookSecret 应返回 401" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 实例未配置 webhookSecret 应返回 401" time="0.004">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 应能处理 status_change 事件" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 应能处理 status_change 事件" time="0.005">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 应能处理 mt5_disconnect 事件" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 应能处理 mt5_disconnect 事件" time="0.004">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 应能处理 circuit_breaker_open 事件" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 应能处理 circuit_breaker_open 事件" time="0.003">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 应能处理 error 事件" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware - 通用 Webhook 接收 应能处理 error 事件" time="0.004">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/mt5/status - MT5 状态变更 应能接收 MT5 断开连接事件" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/mt5/status - MT5 状态变更 应能接收 MT5 断开连接事件" time="0.003">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/mt5/status - MT5 状态变更 应能接收 MT5 重连事件" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/mt5/status - MT5 状态变更 应能接收 MT5 重连事件" time="0.005">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/mt5/status - MT5 状态变更 无效的事件类型应返回 400" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/mt5/status - MT5 状态变更 无效的事件类型应返回 400" time="0.004">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/mt5/status - MT5 状态变更 缺少必要字段应返回 400" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/mt5/status - MT5 状态变更 缺少必要字段应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/circuit-breaker - 熔断器状态变更 应能接收熔断器打开事件" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/circuit-breaker - 熔断器状态变更 应能接收熔断器打开事件" time="0.003">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/circuit-breaker - 熔断器状态变更 应能接收熔断器关闭事件" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/circuit-breaker - 熔断器状态变更 应能接收熔断器关闭事件" time="0.004">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/circuit-breaker - 熔断器状态变更 应能接收熔断器半开状态事件" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/circuit-breaker - 熔断器状态变更 应能接收熔断器半开状态事件" time="0.003">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/circuit-breaker - 熔断器状态变更 无效的状态应返回 400" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/circuit-breaker - 熔断器状态变更 无效的状态应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/metrics - 性能指标上报 应能接收性能指标" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/metrics - 性能指标上报 应能接收性能指标" time="0.004">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/metrics - 性能指标上报 应能接收最小必要指标" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/metrics - 性能指标上报 应能接收最小必要指标" time="0.003">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/metrics - 性能指标上报 缺少必要指标应返回 400" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/metrics - 性能指标上报 缺少必要指标应返回 400" time="0.004">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/metrics - 性能指标上报 指标值类型错误应返回 400" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/metrics - 性能指标上报 指标值类型错误应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/error - 错误报告 应能接收错误报告" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/error - 错误报告 应能接收错误报告" time="0.002">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/error - 错误报告 应能接收最小必要错误信息" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/error - 错误报告 应能接收最小必要错误信息" time="0.003">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/error - 错误报告 缺少错误代码应返回 400" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/error - 错误报告 缺少错误代码应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/error - 错误报告 缺少错误消息应返回 400" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/error - 错误报告 缺少错误消息应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/heartbeat - 心跳端点 应能接收心跳 (不需要签名验证)" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/heartbeat - 心跳端点 应能接收心跳 (不需要签名验证)" time="0.003">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/heartbeat - 心跳端点 心跳响应应包含时间戳" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/heartbeat - 心跳端点 心跳响应应包含时间戳" time="0.002">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) POST /webhook/middleware/heartbeat - 心跳端点 缺少实例 ID 应返回 400" name="Webhook 模块契约测试 (e2e) POST /webhook/middleware/heartbeat - 心跳端点 缺少实例 ID 应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) 签名验证边界情况 空签名应返回 401" name="Webhook 模块契约测试 (e2e) 签名验证边界情况 空签名应返回 401" time="0.003">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) 签名验证边界情况 格式错误的签名应返回 401" name="Webhook 模块契约测试 (e2e) 签名验证边界情况 格式错误的签名应返回 401" time="0.003">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) 签名验证边界情况 非数字时间戳应返回 401" name="Webhook 模块契约测试 (e2e) 签名验证边界情况 非数字时间戳应返回 401" time="0.002">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) 签名验证边界情况 未来时间戳 (5分钟后) 应返回 401" name="Webhook 模块契约测试 (e2e) 签名验证边界情况 未来时间戳 (5分钟后) 应返回 401" time="0.003">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) 响应格式验证 成功响应应包含 received 字段" name="Webhook 模块契约测试 (e2e) 响应格式验证 成功响应应包含 received 字段" time="0.005">
+    </testcase>
+    <testcase classname="Webhook 模块契约测试 (e2e) 响应格式验证 心跳响应应包含 received 和 timestamp 字段" name="Webhook 模块契约测试 (e2e) 响应格式验证 心跳响应应包含 received 和 timestamp 字段" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="Subscriptions (E2E)" errors="0" failures="0" skipped="0" timestamp="2025-12-03T14:07:20" time="3.128" tests="40">
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/plans - 获取所有订阅计划配置 应返回所有订阅计划配置列表" name="Subscriptions (E2E) GET /subscriptions/plans - 获取所有订阅计划配置 应返回所有订阅计划配置列表" time="0.037">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/plans - 获取所有订阅计划配置 无认证应返回 401" name="Subscriptions (E2E) GET /subscriptions/plans - 获取所有订阅计划配置 无认证应返回 401" time="0.004">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/plans/:plan - 获取指定计划配置 应返回 TRIAL 计划配置" name="Subscriptions (E2E) GET /subscriptions/plans/:plan - 获取指定计划配置 应返回 TRIAL 计划配置" time="0.004">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/plans/:plan - 获取指定计划配置 应返回 BASIC 计划配置" name="Subscriptions (E2E) GET /subscriptions/plans/:plan - 获取指定计划配置 应返回 BASIC 计划配置" time="0.002">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/plans/:plan - 获取指定计划配置 应返回 PROFESSIONAL 计划配置" name="Subscriptions (E2E) GET /subscriptions/plans/:plan - 获取指定计划配置 应返回 PROFESSIONAL 计划配置" time="0.003">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/plans/:plan - 获取指定计划配置 应返回 ENTERPRISE 计划配置" name="Subscriptions (E2E) GET /subscriptions/plans/:plan - 获取指定计划配置 应返回 ENTERPRISE 计划配置" time="0.005">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/plans/:plan - 获取指定计划配置 无认证应返回 401" name="Subscriptions (E2E) GET /subscriptions/plans/:plan - 获取指定计划配置 无认证应返回 401" time="0.003">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions - 获取所有租户订阅列表 应返回分页的订阅列表" name="Subscriptions (E2E) GET /subscriptions - 获取所有租户订阅列表 应返回分页的订阅列表" time="0.004">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions - 获取所有租户订阅列表 应支持按计划过滤" name="Subscriptions (E2E) GET /subscriptions - 获取所有租户订阅列表 应支持按计划过滤" time="0.005">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions - 获取所有租户订阅列表 应支持分页参数" name="Subscriptions (E2E) GET /subscriptions - 获取所有租户订阅列表 应支持分页参数" time="0.005">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions - 获取所有租户订阅列表 无认证应返回 401" name="Subscriptions (E2E) GET /subscriptions - 获取所有租户订阅列表 无认证应返回 401" time="0.002">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/stats - 获取订阅统计数据 应返回订阅统计信息" name="Subscriptions (E2E) GET /subscriptions/stats - 获取订阅统计数据 应返回订阅统计信息" time="0.004">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/stats - 获取订阅统计数据 无认证应返回 401" name="Subscriptions (E2E) GET /subscriptions/stats - 获取订阅统计数据 无认证应返回 401" time="0.002">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/tenant/:tenantId - 获取租户订阅状态 应返回租户订阅状态详情" name="Subscriptions (E2E) GET /subscriptions/tenant/:tenantId - 获取租户订阅状态 应返回租户订阅状态详情" time="0.003">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/tenant/:tenantId - 获取租户订阅状态 租户不存在应返回 404" name="Subscriptions (E2E) GET /subscriptions/tenant/:tenantId - 获取租户订阅状态 租户不存在应返回 404" time="0.002">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/tenant/:tenantId - 获取租户订阅状态 无认证应返回 401" name="Subscriptions (E2E) GET /subscriptions/tenant/:tenantId - 获取租户订阅状态 无认证应返回 401" time="0.002">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/tenant/:tenantId/preview/:targetPlan - 预览订阅变更 预览升级到 ENTERPRISE 应显示升级信息" name="Subscriptions (E2E) GET /subscriptions/tenant/:tenantId/preview/:targetPlan - 预览订阅变更 预览升级到 ENTERPRISE 应显示升级信息" time="0.003">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/tenant/:tenantId/preview/:targetPlan - 预览订阅变更 预览降级到 BASIC 应显示降级信息和警告" name="Subscriptions (E2E) GET /subscriptions/tenant/:tenantId/preview/:targetPlan - 预览订阅变更 预览降级到 BASIC 应显示降级信息和警告" time="0.003">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/tenant/:tenantId/preview/:targetPlan - 预览订阅变更 预览降级到 TRIAL 应返回降级信息" name="Subscriptions (E2E) GET /subscriptions/tenant/:tenantId/preview/:targetPlan - 预览订阅变更 预览降级到 TRIAL 应返回降级信息" time="0.004">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/tenant/:tenantId/preview/:targetPlan - 预览订阅变更 租户不存在应返回 404" name="Subscriptions (E2E) GET /subscriptions/tenant/:tenantId/preview/:targetPlan - 预览订阅变更 租户不存在应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) GET /subscriptions/tenant/:tenantId/preview/:targetPlan - 预览订阅变更 无认证应返回 401" name="Subscriptions (E2E) GET /subscriptions/tenant/:tenantId/preview/:targetPlan - 预览订阅变更 无认证应返回 401" time="0.002">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 应能成功升级订阅到 ENTERPRISE" name="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 应能成功升级订阅到 ENTERPRISE" time="0.008">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 应能更改计费周期" name="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 应能更改计费周期" time="0.004">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 应能设置自定义配额上限" name="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 应能设置自定义配额上限" time="0.003">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 缺少 plan 参数应返回 400" name="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 缺少 plan 参数应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 缺少 billingCycle 参数应返回 400" name="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 缺少 billingCycle 参数应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 无效的 plan 值应返回 400" name="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 无效的 plan 值应返回 400" time="0.004">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 无效的 billingCycle 值应返回 400" name="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 无效的 billingCycle 值应返回 400" time="0.004">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 租户不存在应返回 404" name="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 租户不存在应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 无认证应返回 401" name="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId - 更新租户订阅 无认证应返回 401" time="0.003">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId/renew - 续订租户订阅 应能成功续订" name="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId/renew - 续订租户订阅 应能成功续订" time="0.003">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId/renew - 续订租户订阅 租户不存在应返回 404" name="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId/renew - 续订租户订阅 租户不存在应返回 404" time="0.004">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId/renew - 续订租户订阅 无认证应返回 401" name="Subscriptions (E2E) POST /subscriptions/tenant/:tenantId/renew - 续订租户订阅 无认证应返回 401" time="0.003">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) 边界情况和数据验证 订阅状态响应应包含正确的配额计算" name="Subscriptions (E2E) 边界情况和数据验证 订阅状态响应应包含正确的配额计算" time="0.004">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) 边界情况和数据验证 各计划配置应有合理的价格递增" name="Subscriptions (E2E) 边界情况和数据验证 各计划配置应有合理的价格递增" time="0.002">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) 边界情况和数据验证 各计划的季度和年度价格应有折扣" name="Subscriptions (E2E) 边界情况和数据验证 各计划的季度和年度价格应有折扣" time="0.003">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) 边界情况和数据验证 预览相同计划应返回相同计划信息" name="Subscriptions (E2E) 边界情况和数据验证 预览相同计划应返回相同计划信息" time="0.002">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) 计费周期变更 应支持 MONTHLY 计费周期" name="Subscriptions (E2E) 计费周期变更 应支持 MONTHLY 计费周期" time="0.002">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) 计费周期变更 应支持 QUARTERLY 计费周期" name="Subscriptions (E2E) 计费周期变更 应支持 QUARTERLY 计费周期" time="0.002">
+    </testcase>
+    <testcase classname="Subscriptions (E2E) 计费周期变更 应支持 YEARLY 计费周期" name="Subscriptions (E2E) 计费周期变更 应支持 YEARLY 计费周期" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="Invoices (E2E)" errors="0" failures="0" skipped="0" timestamp="2025-12-03T14:07:20" time="3.132" tests="45">
+    <testcase classname="Invoices (E2E) POST /invoices - 创建发票 应能成功创建发票" name="Invoices (E2E) POST /invoices - 创建发票 应能成功创建发票" time="0.047">
+    </testcase>
+    <testcase classname="Invoices (E2E) POST /invoices - 创建发票 应能创建包含多个明细项的发票" name="Invoices (E2E) POST /invoices - 创建发票 应能创建包含多个明细项的发票" time="0.004">
+    </testcase>
+    <testcase classname="Invoices (E2E) POST /invoices - 创建发票 租户不存在应返回 404" name="Invoices (E2E) POST /invoices - 创建发票 租户不存在应返回 404" time="0.005">
+    </testcase>
+    <testcase classname="Invoices (E2E) POST /invoices - 创建发票 缺少 tenantId 应返回 400" name="Invoices (E2E) POST /invoices - 创建发票 缺少 tenantId 应返回 400" time="0.005">
+    </testcase>
+    <testcase classname="Invoices (E2E) POST /invoices - 创建发票 缺少 items 应返回 400" name="Invoices (E2E) POST /invoices - 创建发票 缺少 items 应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="Invoices (E2E) POST /invoices - 创建发票 无认证应返回 401" name="Invoices (E2E) POST /invoices - 创建发票 无认证应返回 401" time="0.003">
+    </testcase>
+    <testcase classname="Invoices (E2E) GET /invoices - 获取发票列表 应返回分页的发票列表" name="Invoices (E2E) GET /invoices - 获取发票列表 应返回分页的发票列表" time="0.004">
+    </testcase>
+    <testcase classname="Invoices (E2E) GET /invoices - 获取发票列表 应支持按租户过滤" name="Invoices (E2E) GET /invoices - 获取发票列表 应支持按租户过滤" time="0.004">
+    </testcase>
+    <testcase classname="Invoices (E2E) GET /invoices - 获取发票列表 应支持按状态过滤" name="Invoices (E2E) GET /invoices - 获取发票列表 应支持按状态过滤" time="0.003">
+    </testcase>
+    <testcase classname="Invoices (E2E) GET /invoices - 获取发票列表 应支持分页参数" name="Invoices (E2E) GET /invoices - 获取发票列表 应支持分页参数" time="0.006">
+    </testcase>
+    <testcase classname="Invoices (E2E) GET /invoices - 获取发票列表 无认证应返回 401" name="Invoices (E2E) GET /invoices - 获取发票列表 无认证应返回 401" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) GET /invoices/stats - 获取发票统计 应返回发票统计信息" name="Invoices (E2E) GET /invoices/stats - 获取发票统计 应返回发票统计信息" time="0.005">
+    </testcase>
+    <testcase classname="Invoices (E2E) GET /invoices/stats - 获取发票统计 无认证应返回 401" name="Invoices (E2E) GET /invoices/stats - 获取发票统计 无认证应返回 401" time="0.003">
+    </testcase>
+    <testcase classname="Invoices (E2E) POST /invoices/check-overdue - 检查并更新逾期发票 应返回更新的逾期发票数量" name="Invoices (E2E) POST /invoices/check-overdue - 检查并更新逾期发票 应返回更新的逾期发票数量" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) POST /invoices/check-overdue - 检查并更新逾期发票 无认证应返回 401" name="Invoices (E2E) POST /invoices/check-overdue - 检查并更新逾期发票 无认证应返回 401" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) GET /invoices/:id - 获取发票详情 应返回发票详情" name="Invoices (E2E) GET /invoices/:id - 获取发票详情 应返回发票详情" time="0.003">
+    </testcase>
+    <testcase classname="Invoices (E2E) GET /invoices/:id - 获取发票详情 应返回包含租户信息的发票详情" name="Invoices (E2E) GET /invoices/:id - 获取发票详情 应返回包含租户信息的发票详情" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) GET /invoices/:id - 获取发票详情 发票不存在应返回 404" name="Invoices (E2E) GET /invoices/:id - 获取发票详情 发票不存在应返回 404" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) GET /invoices/:id - 获取发票详情 无认证应返回 401" name="Invoices (E2E) GET /invoices/:id - 获取发票详情 无认证应返回 401" time="0.003">
+    </testcase>
+    <testcase classname="Invoices (E2E) GET /invoices/number/:invoiceNo - 按发票号查找 应返回匹配发票号的发票" name="Invoices (E2E) GET /invoices/number/:invoiceNo - 按发票号查找 应返回匹配发票号的发票" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) GET /invoices/number/:invoiceNo - 按发票号查找 发票号不存在应返回 404" name="Invoices (E2E) GET /invoices/number/:invoiceNo - 按发票号查找 发票号不存在应返回 404" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) GET /invoices/number/:invoiceNo - 按发票号查找 无认证应返回 401" name="Invoices (E2E) GET /invoices/number/:invoiceNo - 按发票号查找 无认证应返回 401" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) GET /invoices/tenant/:tenantId - 获取租户的所有发票 应返回指定租户的所有发票" name="Invoices (E2E) GET /invoices/tenant/:tenantId - 获取租户的所有发票 应返回指定租户的所有发票" time="0.004">
+    </testcase>
+    <testcase classname="Invoices (E2E) GET /invoices/tenant/:tenantId - 获取租户的所有发票 无认证应返回 401" name="Invoices (E2E) GET /invoices/tenant/:tenantId - 获取租户的所有发票 无认证应返回 401" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) PATCH /invoices/:id/status - 更新发票状态 应能将 PENDING 发票标记为 PAID" name="Invoices (E2E) PATCH /invoices/:id/status - 更新发票状态 应能将 PENDING 发票标记为 PAID" time="0.003">
+    </testcase>
+    <testcase classname="Invoices (E2E) PATCH /invoices/:id/status - 更新发票状态 应能将 PENDING 发票标记为 CANCELLED" name="Invoices (E2E) PATCH /invoices/:id/status - 更新发票状态 应能将 PENDING 发票标记为 CANCELLED" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) PATCH /invoices/:id/status - 更新发票状态 应能将 OVERDUE 发票标记为 PAID" name="Invoices (E2E) PATCH /invoices/:id/status - 更新发票状态 应能将 OVERDUE 发票标记为 PAID" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) PATCH /invoices/:id/status - 更新发票状态 缺少 status 参数应返回 400" name="Invoices (E2E) PATCH /invoices/:id/status - 更新发票状态 缺少 status 参数应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="Invoices (E2E) PATCH /invoices/:id/status - 更新发票状态 无效的 status 值应返回 400" name="Invoices (E2E) PATCH /invoices/:id/status - 更新发票状态 无效的 status 值应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) PATCH /invoices/:id/status - 更新发票状态 发票不存在应返回 404" name="Invoices (E2E) PATCH /invoices/:id/status - 更新发票状态 发票不存在应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="Invoices (E2E) PATCH /invoices/:id/status - 更新发票状态 无认证应返回 401" name="Invoices (E2E) PATCH /invoices/:id/status - 更新发票状态 无认证应返回 401" time="0.003">
+    </testcase>
+    <testcase classname="Invoices (E2E) POST /invoices/:id/pay - 标记发票为已支付 应能将 PENDING 发票标记为已支付" name="Invoices (E2E) POST /invoices/:id/pay - 标记发票为已支付 应能将 PENDING 发票标记为已支付" time="0.004">
+    </testcase>
+    <testcase classname="Invoices (E2E) POST /invoices/:id/pay - 标记发票为已支付 应能将 OVERDUE 发票标记为已支付" name="Invoices (E2E) POST /invoices/:id/pay - 标记发票为已支付 应能将 OVERDUE 发票标记为已支付" time="0.003">
+    </testcase>
+    <testcase classname="Invoices (E2E) POST /invoices/:id/pay - 标记发票为已支付 发票不存在应返回 404" name="Invoices (E2E) POST /invoices/:id/pay - 标记发票为已支付 发票不存在应返回 404" time="0.004">
+    </testcase>
+    <testcase classname="Invoices (E2E) POST /invoices/:id/pay - 标记发票为已支付 无认证应返回 401" name="Invoices (E2E) POST /invoices/:id/pay - 标记发票为已支付 无认证应返回 401" time="0.004">
+    </testcase>
+    <testcase classname="Invoices (E2E) POST /invoices/:id/cancel - 取消发票 应能取消 PENDING 发票" name="Invoices (E2E) POST /invoices/:id/cancel - 取消发票 应能取消 PENDING 发票" time="0.004">
+    </testcase>
+    <testcase classname="Invoices (E2E) POST /invoices/:id/cancel - 取消发票 应能取消 OVERDUE 发票" name="Invoices (E2E) POST /invoices/:id/cancel - 取消发票 应能取消 OVERDUE 发票" time="0.004">
+    </testcase>
+    <testcase classname="Invoices (E2E) POST /invoices/:id/cancel - 取消发票 无取消原因也应成功" name="Invoices (E2E) POST /invoices/:id/cancel - 取消发票 无取消原因也应成功" time="0.003">
+    </testcase>
+    <testcase classname="Invoices (E2E) POST /invoices/:id/cancel - 取消发票 发票不存在应返回 404" name="Invoices (E2E) POST /invoices/:id/cancel - 取消发票 发票不存在应返回 404" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) POST /invoices/:id/cancel - 取消发票 无认证应返回 401" name="Invoices (E2E) POST /invoices/:id/cancel - 取消发票 无认证应返回 401" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) 发票状态转换规则 PAID 发票不能转为 PENDING" name="Invoices (E2E) 发票状态转换规则 PAID 发票不能转为 PENDING" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) 发票状态转换规则 PAID 发票可以转为 REFUNDED" name="Invoices (E2E) 发票状态转换规则 PAID 发票可以转为 REFUNDED" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) 边界情况和数据验证 发票响应应包含所有必要字段" name="Invoices (E2E) 边界情况和数据验证 发票响应应包含所有必要字段" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) 边界情况和数据验证 金额应为数值类型" name="Invoices (E2E) 边界情况和数据验证 金额应为数值类型" time="0.002">
+    </testcase>
+    <testcase classname="Invoices (E2E) 边界情况和数据验证 统计数据应一致" name="Invoices (E2E) 边界情况和数据验证 统计数据应一致" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="TenantsController (e2e)" errors="0" failures="0" skipped="0" timestamp="2025-12-03T14:07:20" time="3.15" tests="48">
+    <testcase classname="TenantsController (e2e) Authorization 无 Token 访问应返回 401" name="TenantsController (e2e) Authorization 无 Token 访问应返回 401" time="0.034">
+    </testcase>
+    <testcase classname="TenantsController (e2e) Authorization 无效 Token 访问应返回 401" name="TenantsController (e2e) Authorization 无效 Token 访问应返回 401" time="0.006">
+    </testcase>
+    <testcase classname="TenantsController (e2e) Authorization Tenant Admin 访问应返回 403" name="TenantsController (e2e) Authorization Tenant Admin 访问应返回 403" time="0.004">
+    </testcase>
+    <testcase classname="TenantsController (e2e) Authorization 过期 Token 访问应返回 401" name="TenantsController (e2e) Authorization 过期 Token 访问应返回 401" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) GET /tenants Platform Super Admin 应能获取租户列表" name="TenantsController (e2e) GET /tenants Platform Super Admin 应能获取租户列表" time="0.008">
+    </testcase>
+    <testcase classname="TenantsController (e2e) GET /tenants Platform Admin 应能获取租户列表" name="TenantsController (e2e) GET /tenants Platform Admin 应能获取租户列表" time="0.004">
+    </testcase>
+    <testcase classname="TenantsController (e2e) GET /tenants Platform Operator 应能获取租户列表" name="TenantsController (e2e) GET /tenants Platform Operator 应能获取租户列表" time="0.004">
+    </testcase>
+    <testcase classname="TenantsController (e2e) GET /tenants 应支持分页参数" name="TenantsController (e2e) GET /tenants 应支持分页参数" time="0.004">
+    </testcase>
+    <testcase classname="TenantsController (e2e) GET /tenants 应支持状态筛选" name="TenantsController (e2e) GET /tenants 应支持状态筛选" time="0.005">
+    </testcase>
+    <testcase classname="TenantsController (e2e) GET /tenants 应支持计划筛选" name="TenantsController (e2e) GET /tenants 应支持计划筛选" time="0.004">
+    </testcase>
+    <testcase classname="TenantsController (e2e) GET /tenants 应支持搜索" name="TenantsController (e2e) GET /tenants 应支持搜索" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) GET /tenants 无效的状态值应返回 400" name="TenantsController (e2e) GET /tenants 无效的状态值应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) GET /tenants/stats Platform Admin 应能获取租户统计" name="TenantsController (e2e) GET /tenants/stats Platform Admin 应能获取租户统计" time="0.005">
+    </testcase>
+    <testcase classname="TenantsController (e2e) GET /tenants/:id 应能获取租户详情" name="TenantsController (e2e) GET /tenants/:id 应能获取租户详情" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) GET /tenants/:id 不存在的租户应返回 404" name="TenantsController (e2e) GET /tenants/:id 不存在的租户应返回 404" time="0.005">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants Platform Super Admin 应能创建租户" name="TenantsController (e2e) POST /tenants Platform Super Admin 应能创建租户" time="0.011">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants Platform Admin 应能创建租户" name="TenantsController (e2e) POST /tenants Platform Admin 应能创建租户" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants 缺少必填字段应返回 400" name="TenantsController (e2e) POST /tenants 缺少必填字段应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants 无效的 email 格式应返回 400" name="TenantsController (e2e) POST /tenants 无效的 email 格式应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants 无效的 code 格式应返回 400" name="TenantsController (e2e) POST /tenants 无效的 code 格式应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants 重复的 code 应返回 409" name="TenantsController (e2e) POST /tenants 重复的 code 应返回 409" time="0.005">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants 无效的 plan 值应返回 400" name="TenantsController (e2e) POST /tenants 无效的 plan 值应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants 无效的 billingCycle 值应返回 400" name="TenantsController (e2e) POST /tenants 无效的 billingCycle 值应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="TenantsController (e2e) PATCH /tenants/:id 应能更新租户信息" name="TenantsController (e2e) PATCH /tenants/:id 应能更新租户信息" time="0.004">
+    </testcase>
+    <testcase classname="TenantsController (e2e) PATCH /tenants/:id 应能更新租户计划" name="TenantsController (e2e) PATCH /tenants/:id 应能更新租户计划" time="0.002">
+    </testcase>
+    <testcase classname="TenantsController (e2e) PATCH /tenants/:id 不存在的租户应返回 404" name="TenantsController (e2e) PATCH /tenants/:id 不存在的租户应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) PATCH /tenants/:id 无效数据应返回 400" name="TenantsController (e2e) PATCH /tenants/:id 无效数据应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="TenantsController (e2e) DELETE /tenants/:id Platform Super Admin 应能删除租户" name="TenantsController (e2e) DELETE /tenants/:id Platform Super Admin 应能删除租户" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) DELETE /tenants/:id 不存在的租户应返回 404" name="TenantsController (e2e) DELETE /tenants/:id 不存在的租户应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants/:id/activate 应能激活 PENDING 状态的租户" name="TenantsController (e2e) POST /tenants/:id/activate 应能激活 PENDING 状态的租户" time="0.004">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants/:id/activate 不存在的租户应返回 404" name="TenantsController (e2e) POST /tenants/:id/activate 不存在的租户应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants/:id/suspend 应能暂停 ACTIVE 租户" name="TenantsController (e2e) POST /tenants/:id/suspend 应能暂停 ACTIVE 租户" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants/:id/suspend 不存在的租户应返回 404" name="TenantsController (e2e) POST /tenants/:id/suspend 不存在的租户应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants/:id/restore 应能恢复已暂停的租户" name="TenantsController (e2e) POST /tenants/:id/restore 应能恢复已暂停的租户" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants/:id/restore 不存在的租户应返回 404" name="TenantsController (e2e) POST /tenants/:id/restore 不存在的租户应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants/:id/terminate 应能终止 SUSPENDED 状态的租户" name="TenantsController (e2e) POST /tenants/:id/terminate 应能终止 SUSPENDED 状态的租户" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants/:id/terminate ACTIVE 状态不能直接终止应返回 422" name="TenantsController (e2e) POST /tenants/:id/terminate ACTIVE 状态不能直接终止应返回 422" time="0.002">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants/:id/terminate 不存在的租户应返回 404" name="TenantsController (e2e) POST /tenants/:id/terminate 不存在的租户应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants/:id/expire 应能设置 ACTIVE 租户过期" name="TenantsController (e2e) POST /tenants/:id/expire 应能设置 ACTIVE 租户过期" time="0.002">
+    </testcase>
+    <testcase classname="TenantsController (e2e) POST /tenants/:id/expire 不存在的租户应返回 404" name="TenantsController (e2e) POST /tenants/:id/expire 不存在的租户应返回 404" time="0.002">
+    </testcase>
+    <testcase classname="TenantsController (e2e) GET /tenants/:id/branding 应能获取租户白标配置" name="TenantsController (e2e) GET /tenants/:id/branding 应能获取租户白标配置" time="0.002">
+    </testcase>
+    <testcase classname="TenantsController (e2e) GET /tenants/:id/branding 不存在的租户应返回 404" name="TenantsController (e2e) GET /tenants/:id/branding 不存在的租户应返回 404" time="0.002">
+    </testcase>
+    <testcase classname="TenantsController (e2e) PATCH /tenants/:id/branding 应能更新租户白标配置" name="TenantsController (e2e) PATCH /tenants/:id/branding 应能更新租户白标配置" time="0.002">
+    </testcase>
+    <testcase classname="TenantsController (e2e) PATCH /tenants/:id/branding 无效的颜色格式应返回 400" name="TenantsController (e2e) PATCH /tenants/:id/branding 无效的颜色格式应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="TenantsController (e2e) PATCH /tenants/:id/branding 无效的 logo URL 应返回 400" name="TenantsController (e2e) PATCH /tenants/:id/branding 无效的 logo URL 应返回 400" time="0.004">
+    </testcase>
+    <testcase classname="TenantsController (e2e) PATCH /tenants/:id/branding 不存在的租户应返回 404" name="TenantsController (e2e) PATCH /tenants/:id/branding 不存在的租户应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="TenantsController (e2e) 响应时间 获取租户列表应在 500ms 内完成" name="TenantsController (e2e) 响应时间 获取租户列表应在 500ms 内完成" time="0.002">
+    </testcase>
+    <testcase classname="TenantsController (e2e) 响应时间 获取租户详情应在 200ms 内完成" name="TenantsController (e2e) 响应时间 获取租户详情应在 200ms 内完成" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="Trading Data 模块契约测试 (e2e)" errors="0" failures="0" skipped="0" timestamp="2025-12-03T14:07:20" time="3.155" tests="47">
+    <testcase classname="Trading Data 模块契约测试 (e2e) 认证和授权 无认证 token 应返回 401" name="Trading Data 模块契约测试 (e2e) 认证和授权 无认证 token 应返回 401" time="0.021">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) 认证和授权 无效 token 应返回 401" name="Trading Data 模块契约测试 (e2e) 认证和授权 无效 token 应返回 401" time="0.005">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) 认证和授权 过期 token 应返回 401" name="Trading Data 模块契约测试 (e2e) 认证和授权 过期 token 应返回 401" time="0.005">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) 认证和授权 Tenant Admin 访问应返回 403" name="Trading Data 模块契约测试 (e2e) 认证和授权 Tenant Admin 访问应返回 403" time="0.005">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) 认证和授权 Tenant Owner 访问应返回 403" name="Trading Data 模块契约测试 (e2e) 认证和授权 Tenant Owner 访问应返回 403" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/overview - 获取所有租户的交易概览 Platform Admin 应能获取所有租户概览" name="Trading Data 模块契约测试 (e2e) GET /trading-data/overview - 获取所有租户的交易概览 Platform Admin 应能获取所有租户概览" time="0.013">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/overview - 获取所有租户的交易概览 没有活跃租户时应返回空数组" name="Trading Data 模块契约测试 (e2e) GET /trading-data/overview - 获取所有租户的交易概览 没有活跃租户时应返回空数组" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/overview/tenant/:tenantId - 获取指定租户概览 应能获取指定租户的交易概览" name="Trading Data 模块契约测试 (e2e) GET /trading-data/overview/tenant/:tenantId - 获取指定租户概览 应能获取指定租户的交易概览" time="0.004">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/overview/tenant/:tenantId - 获取指定租户概览 租户概览应包含实例信息" name="Trading Data 模块契约测试 (e2e) GET /trading-data/overview/tenant/:tenantId - 获取指定租户概览 租户概览应包含实例信息" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/overview/tenant/:tenantId - 获取指定租户概览 租户不存在应返回 404" name="Trading Data 模块契约测试 (e2e) GET /trading-data/overview/tenant/:tenantId - 获取指定租户概览 租户不存在应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/history - 查询交易历史 应能获取交易历史列表" name="Trading Data 模块契约测试 (e2e) GET /trading-data/history - 查询交易历史 应能获取交易历史列表" time="0.006">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/history - 查询交易历史 应支持按租户筛选" name="Trading Data 模块契约测试 (e2e) GET /trading-data/history - 查询交易历史 应支持按租户筛选" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/history - 查询交易历史 应支持按交易品种筛选" name="Trading Data 模块契约测试 (e2e) GET /trading-data/history - 查询交易历史 应支持按交易品种筛选" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/history - 查询交易历史 应支持日期范围筛选" name="Trading Data 模块契约测试 (e2e) GET /trading-data/history - 查询交易历史 应支持日期范围筛选" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/history - 查询交易历史 应支持分页参数" name="Trading Data 模块契约测试 (e2e) GET /trading-data/history - 查询交易历史 应支持分页参数" time="0.004">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/history - 查询交易历史 没有在线实例时应返回空数据" name="Trading Data 模块契约测试 (e2e) GET /trading-data/history - 查询交易历史 没有在线实例时应返回空数据" time="0.002">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/history - 查询交易历史 缺少 fromDate 应返回 400" name="Trading Data 模块契约测试 (e2e) GET /trading-data/history - 查询交易历史 缺少 fromDate 应返回 400" time="0.006">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/history - 查询交易历史 缺少 toDate 应返回 400" name="Trading Data 模块契约测试 (e2e) GET /trading-data/history - 查询交易历史 缺少 toDate 应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/positions - 获取实时持仓 应能获取持仓列表" name="Trading Data 模块契约测试 (e2e) GET /trading-data/positions - 获取实时持仓 应能获取持仓列表" time="0.002">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/positions - 获取实时持仓 持仓数据应包含必要字段" name="Trading Data 模块契约测试 (e2e) GET /trading-data/positions - 获取实时持仓 持仓数据应包含必要字段" time="0.004">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/positions - 获取实时持仓 应支持按租户筛选" name="Trading Data 模块契约测试 (e2e) GET /trading-data/positions - 获取实时持仓 应支持按租户筛选" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/positions - 获取实时持仓 应支持按实例筛选" name="Trading Data 模块契约测试 (e2e) GET /trading-data/positions - 获取实时持仓 应支持按实例筛选" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/positions - 获取实时持仓 应支持按账号筛选" name="Trading Data 模块契约测试 (e2e) GET /trading-data/positions - 获取实时持仓 应支持按账号筛选" time="0.002">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/balances - 获取账户余额 应能获取账户余额列表" name="Trading Data 模块契约测试 (e2e) GET /trading-data/balances - 获取账户余额 应能获取账户余额列表" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/balances - 获取账户余额 账户余额应包含必要字段" name="Trading Data 模块契约测试 (e2e) GET /trading-data/balances - 获取账户余额 账户余额应包含必要字段" time="0.002">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/balances - 获取账户余额 应支持按租户筛选" name="Trading Data 模块契约测试 (e2e) GET /trading-data/balances - 获取账户余额 应支持按租户筛选" time="0.002">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/balances - 获取账户余额 应支持按实例筛选" name="Trading Data 模块契约测试 (e2e) GET /trading-data/balances - 获取账户余额 应支持按实例筛选" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/stats - 获取交易统计 应能获取交易统计" name="Trading Data 模块契约测试 (e2e) GET /trading-data/stats - 获取交易统计 应能获取交易统计" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/stats - 获取交易统计 统计应包含按品种分类" name="Trading Data 模块契约测试 (e2e) GET /trading-data/stats - 获取交易统计 统计应包含按品种分类" time="0.002">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/stats - 获取交易统计 统计应包含按类型分类" name="Trading Data 模块契约测试 (e2e) GET /trading-data/stats - 获取交易统计 统计应包含按类型分类" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/stats - 获取交易统计 应支持日期范围筛选" name="Trading Data 模块契约测试 (e2e) GET /trading-data/stats - 获取交易统计 应支持日期范围筛选" time="0.002">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/stats - 获取交易统计 应支持按租户筛选" name="Trading Data 模块契约测试 (e2e) GET /trading-data/stats - 获取交易统计 应支持按租户筛选" time="0.002">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/aggregated/:tenantId - 获取聚合交易数据 应能获取每日聚合数据" name="Trading Data 模块契约测试 (e2e) GET /trading-data/aggregated/:tenantId - 获取聚合交易数据 应能获取每日聚合数据" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/aggregated/:tenantId - 获取聚合交易数据 应能获取每周聚合数据" name="Trading Data 模块契约测试 (e2e) GET /trading-data/aggregated/:tenantId - 获取聚合交易数据 应能获取每周聚合数据" time="0.004">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/aggregated/:tenantId - 获取聚合交易数据 应能获取每月聚合数据" name="Trading Data 模块契约测试 (e2e) GET /trading-data/aggregated/:tenantId - 获取聚合交易数据 应能获取每月聚合数据" time="0.002">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/aggregated/:tenantId - 获取聚合交易数据 聚合数据应包含必要字段" name="Trading Data 模块契约测试 (e2e) GET /trading-data/aggregated/:tenantId - 获取聚合交易数据 聚合数据应包含必要字段" time="0.005">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/tenant/:tenantId/history - 获取租户交易历史 应能获取指定租户的交易历史" name="Trading Data 模块契约测试 (e2e) GET /trading-data/tenant/:tenantId/history - 获取租户交易历史 应能获取指定租户的交易历史" time="0.027">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/tenant/:tenantId/history - 获取租户交易历史 应支持分页参数" name="Trading Data 模块契约测试 (e2e) GET /trading-data/tenant/:tenantId/history - 获取租户交易历史 应支持分页参数" time="0.004">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/instance/:instanceId/history - 获取实例交易历史 应能获取指定实例的交易历史" name="Trading Data 模块契约测试 (e2e) GET /trading-data/instance/:instanceId/history - 获取实例交易历史 应能获取指定实例的交易历史" time="0.005">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/instance/:instanceId/history - 获取实例交易历史 实例不存在时应返回空数据" name="Trading Data 模块契约测试 (e2e) GET /trading-data/instance/:instanceId/history - 获取实例交易历史 实例不存在时应返回空数据" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/instance/:instanceId/positions - 获取实例持仓 应能获取指定实例的持仓" name="Trading Data 模块契约测试 (e2e) GET /trading-data/instance/:instanceId/positions - 获取实例持仓 应能获取指定实例的持仓" time="0.003">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) GET /trading-data/instance/:instanceId/balances - 获取实例账户余额 应能获取指定实例的账户余额" name="Trading Data 模块契约测试 (e2e) GET /trading-data/instance/:instanceId/balances - 获取实例账户余额 应能获取指定实例的账户余额" time="0.002">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) 错误处理 中间件不可用时应优雅处理" name="Trading Data 模块契约测试 (e2e) 错误处理 中间件不可用时应优雅处理" time="0.007">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) 错误处理 部分实例不可用时应返回可用实例的数据" name="Trading Data 模块契约测试 (e2e) 错误处理 部分实例不可用时应返回可用实例的数据" time="0.004">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) 响应数据类型验证 交易历史数值字段应为数字类型" name="Trading Data 模块契约测试 (e2e) 响应数据类型验证 交易历史数值字段应为数字类型" time="0.002">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) 响应数据类型验证 统计数值应为数字类型" name="Trading Data 模块契约测试 (e2e) 响应数据类型验证 统计数值应为数字类型" time="0.002">
+    </testcase>
+    <testcase classname="Trading Data 模块契约测试 (e2e) 响应数据类型验证 账户余额数值应为数字类型" name="Trading Data 模块契约测试 (e2e) 响应数据类型验证 账户余额数值应为数字类型" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="TenantAdminsController (e2e)" errors="0" failures="0" skipped="0" timestamp="2025-12-03T14:07:20" time="3.288" tests="47">
+    <testcase classname="TenantAdminsController (e2e) Authentication &amp; Authorization 无 Token 访问应返回 401" name="TenantAdminsController (e2e) Authentication &amp; Authorization 无 Token 访问应返回 401" time="0.034">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) Authentication &amp; Authorization 无效 Token 应返回 401" name="TenantAdminsController (e2e) Authentication &amp; Authorization 无效 Token 应返回 401" time="0.006">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) Authentication &amp; Authorization 过期 Token 应返回 401" name="TenantAdminsController (e2e) Authentication &amp; Authorization 过期 Token 应返回 401" time="0.006">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) Authentication &amp; Authorization Tenant Admin Token 访问应返回 403" name="TenantAdminsController (e2e) Authentication &amp; Authorization Tenant Admin Token 访问应返回 403" time="0.007">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) GET /tenant-admins Platform Admin 应能获取所有租户管理员列表" name="TenantAdminsController (e2e) GET /tenant-admins Platform Admin 应能获取所有租户管理员列表" time="0.007">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) GET /tenant-admins 可以按 tenantId 筛选" name="TenantAdminsController (e2e) GET /tenant-admins 可以按 tenantId 筛选" time="0.004">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) GET /tenant-admins 可以按 role 筛选" name="TenantAdminsController (e2e) GET /tenant-admins 可以按 role 筛选" time="0.003">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) GET /tenant-admins 可以按 isActive 筛选" name="TenantAdminsController (e2e) GET /tenant-admins 可以按 isActive 筛选" time="0.003">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) GET /tenant-admins 支持分页参数" name="TenantAdminsController (e2e) GET /tenant-admins 支持分页参数" time="0.005">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) GET /tenant-admins 支持搜索功能" name="TenantAdminsController (e2e) GET /tenant-admins 支持搜索功能" time="0.003">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) GET /tenant-admins/stats 应能获取管理员统计" name="TenantAdminsController (e2e) GET /tenant-admins/stats 应能获取管理员统计" time="0.003">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) GET /tenant-admins/stats 可以按 tenantId 获取特定租户的统计" name="TenantAdminsController (e2e) GET /tenant-admins/stats 可以按 tenantId 获取特定租户的统计" time="0.003">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) GET /tenant-admins/:id 应能获取指定管理员详情" name="TenantAdminsController (e2e) GET /tenant-admins/:id 应能获取指定管理员详情" time="0.004">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) GET /tenant-admins/:id 不存在的管理员应返回 404" name="TenantAdminsController (e2e) GET /tenant-admins/:id 不存在的管理员应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) GET /tenant-admins/:id 应能获取 Owner 角色管理员详情" name="TenantAdminsController (e2e) GET /tenant-admins/:id 应能获取 Owner 角色管理员详情" time="0.003">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) GET /tenant-admins/tenant/:tenantId 应能获取指定租户的所有管理员" name="TenantAdminsController (e2e) GET /tenant-admins/tenant/:tenantId 应能获取指定租户的所有管理员" time="0.004">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) GET /tenant-admins/tenant/:tenantId 空租户应返回空数组" name="TenantAdminsController (e2e) GET /tenant-admins/tenant/:tenantId 空租户应返回空数组" time="0.004">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) POST /tenant-admins 应能创建新租户管理员" name="TenantAdminsController (e2e) POST /tenant-admins 应能创建新租户管理员" time="0.058">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) POST /tenant-admins 重复的邮箱应返回 409" name="TenantAdminsController (e2e) POST /tenant-admins 重复的邮箱应返回 409" time="0.003">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) POST /tenant-admins 缺少必填字段应返回 400" name="TenantAdminsController (e2e) POST /tenant-admins 缺少必填字段应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) POST /tenant-admins 无效的 email 格式应返回 400" name="TenantAdminsController (e2e) POST /tenant-admins 无效的 email 格式应返回 400" time="0.004">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) POST /tenant-admins 密码太短应返回 400" name="TenantAdminsController (e2e) POST /tenant-admins 密码太短应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) POST /tenant-admins 无效的角色应返回 400" name="TenantAdminsController (e2e) POST /tenant-admins 无效的角色应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) POST /tenant-admins 无效的 tenantId 格式应返回 400" name="TenantAdminsController (e2e) POST /tenant-admins 无效的 tenantId 格式应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) POST /tenant-admins 创建 OWNER 角色应成功" name="TenantAdminsController (e2e) POST /tenant-admins 创建 OWNER 角色应成功" time="0.044">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) POST /tenant-admins 创建 OPERATOR 角色应成功" name="TenantAdminsController (e2e) POST /tenant-admins 创建 OPERATOR 角色应成功" time="0.041">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) PATCH /tenant-admins/:id 应能更新管理员信息" name="TenantAdminsController (e2e) PATCH /tenant-admins/:id 应能更新管理员信息" time="0.003">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) PATCH /tenant-admins/:id 不存在的管理员应返回 404" name="TenantAdminsController (e2e) PATCH /tenant-admins/:id 不存在的管理员应返回 404" time="0.002">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) PATCH /tenant-admins/:id 应能更新管理员的 isActive 状态" name="TenantAdminsController (e2e) PATCH /tenant-admins/:id 应能更新管理员的 isActive 状态" time="0.002">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) PATCH /tenant-admins/:id 应能更新管理员角色" name="TenantAdminsController (e2e) PATCH /tenant-admins/:id 应能更新管理员角色" time="0.002">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) PATCH /tenant-admins/:id 无效的角色应返回 400" name="TenantAdminsController (e2e) PATCH /tenant-admins/:id 无效的角色应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) DELETE /tenant-admins/:id 应能删除管理员" name="TenantAdminsController (e2e) DELETE /tenant-admins/:id 应能删除管理员" time="0.002">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) DELETE /tenant-admins/:id 不存在的管理员应返回 404" name="TenantAdminsController (e2e) DELETE /tenant-admins/:id 不存在的管理员应返回 404" time="0.002">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) DELETE /tenant-admins/:id 不能删除最后一个 Owner" name="TenantAdminsController (e2e) DELETE /tenant-admins/:id 不能删除最后一个 Owner" time="0.002">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) PATCH /tenant-admins/:id/password 应能成功修改密码" name="TenantAdminsController (e2e) PATCH /tenant-admins/:id/password 应能成功修改密码" time="0.043">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) PATCH /tenant-admins/:id/password 新密码太短应返回 400" name="TenantAdminsController (e2e) PATCH /tenant-admins/:id/password 新密码太短应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) PATCH /tenant-admins/:id/password 不存在的管理员应返回 404" name="TenantAdminsController (e2e) PATCH /tenant-admins/:id/password 不存在的管理员应返回 404" time="0.002">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) PATCH /tenant-admins/:id/password 缺少新密码应返回 400" name="TenantAdminsController (e2e) PATCH /tenant-admins/:id/password 缺少新密码应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) POST /tenant-admins/:id/activate 应能激活管理员" name="TenantAdminsController (e2e) POST /tenant-admins/:id/activate 应能激活管理员" time="0.002">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) POST /tenant-admins/:id/activate 不存在的管理员应返回 404" name="TenantAdminsController (e2e) POST /tenant-admins/:id/activate 不存在的管理员应返回 404" time="0.002">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) POST /tenant-admins/:id/activate 已激活的管理员再次激活应成功" name="TenantAdminsController (e2e) POST /tenant-admins/:id/activate 已激活的管理员再次激活应成功" time="0.001">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) POST /tenant-admins/:id/deactivate 应能停用管理员" name="TenantAdminsController (e2e) POST /tenant-admins/:id/deactivate 应能停用管理员" time="0.002">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) POST /tenant-admins/:id/deactivate 不存在的管理员应返回 404" name="TenantAdminsController (e2e) POST /tenant-admins/:id/deactivate 不存在的管理员应返回 404" time="0.002">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) POST /tenant-admins/:id/deactivate 不能停用最后一个活跃的 Owner" name="TenantAdminsController (e2e) POST /tenant-admins/:id/deactivate 不能停用最后一个活跃的 Owner" time="0.001">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) Response Format Validation 管理员详情应包含所有必要字段" name="TenantAdminsController (e2e) Response Format Validation 管理员详情应包含所有必要字段" time="0.002">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) Response Format Validation 角色值应为有效枚举" name="TenantAdminsController (e2e) Response Format Validation 角色值应为有效枚举" time="0.003">
+    </testcase>
+    <testcase classname="TenantAdminsController (e2e) Response Format Validation 日期字段应为有效的 ISO 格式" name="TenantAdminsController (e2e) Response Format Validation 日期字段应为有效的 ISO 格式" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="AuthController (e2e)" errors="0" failures="0" skipped="0" timestamp="2025-12-03T14:07:20" time="3.348" tests="27">
+    <testcase classname="AuthController (e2e) POST /auth/login Platform Admin Login 应该成功登录 Platform Super Admin" name="AuthController (e2e) POST /auth/login Platform Admin Login 应该成功登录 Platform Super Admin" time="0.087">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/login Platform Admin Login 应该成功登录 Platform Admin" name="AuthController (e2e) POST /auth/login Platform Admin Login 应该成功登录 Platform Admin" time="0.05">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/login Platform Admin Login 错误密码应返回 401" name="AuthController (e2e) POST /auth/login Platform Admin Login 错误密码应返回 401" time="0.048">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/login Platform Admin Login 不存在的邮箱应返回 401" name="AuthController (e2e) POST /auth/login Platform Admin Login 不存在的邮箱应返回 401" time="0.003">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/login Platform Admin Login 被禁用的账户应返回 401" name="AuthController (e2e) POST /auth/login Platform Admin Login 被禁用的账户应返回 401" time="0.002">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/login Tenant Admin Login 应该成功登录 Tenant Owner" name="AuthController (e2e) POST /auth/login Tenant Admin Login 应该成功登录 Tenant Owner" time="0.043">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/login Tenant Admin Login 应该成功登录 Tenant Admin" name="AuthController (e2e) POST /auth/login Tenant Admin Login 应该成功登录 Tenant Admin" time="0.043">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/login Tenant Admin Login 缺少 tenantCode 应返回 400" name="AuthController (e2e) POST /auth/login Tenant Admin Login 缺少 tenantCode 应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/login Tenant Admin Login 无效的 tenantCode 应返回 401" name="AuthController (e2e) POST /auth/login Tenant Admin Login 无效的 tenantCode 应返回 401" time="0.002">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/login Tenant Admin Login 被禁用的租户应返回 401" name="AuthController (e2e) POST /auth/login Tenant Admin Login 被禁用的租户应返回 401" time="0.003">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/login Validation 缺少 email 应返回 400" name="AuthController (e2e) POST /auth/login Validation 缺少 email 应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/login Validation 缺少 password 应返回 400" name="AuthController (e2e) POST /auth/login Validation 缺少 password 应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/login Validation 缺少 userType 应返回 400" name="AuthController (e2e) POST /auth/login Validation 缺少 userType 应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/login Validation 无效的 email 格式应返回 400" name="AuthController (e2e) POST /auth/login Validation 无效的 email 格式应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/login Validation 密码太短应返回 400" name="AuthController (e2e) POST /auth/login Validation 密码太短应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/login Validation 无效的 userType 应返回 400" name="AuthController (e2e) POST /auth/login Validation 无效的 userType 应返回 400" time="0.001">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/refresh 应该成功刷新 Token" name="AuthController (e2e) POST /auth/refresh 应该成功刷新 Token" time="0.044">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/refresh 无效的 refreshToken 应返回 401" name="AuthController (e2e) POST /auth/refresh 无效的 refreshToken 应返回 401" time="0.002">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/refresh 缺少 refreshToken 应返回 400" name="AuthController (e2e) POST /auth/refresh 缺少 refreshToken 应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="AuthController (e2e) POST /auth/refresh 过期的 refreshToken 应返回 401" name="AuthController (e2e) POST /auth/refresh 过期的 refreshToken 应返回 401" time="0.002">
+    </testcase>
+    <testcase classname="AuthController (e2e) GET /auth/me Platform Admin 应能获取个人信息" name="AuthController (e2e) GET /auth/me Platform Admin 应能获取个人信息" time="0.002">
+    </testcase>
+    <testcase classname="AuthController (e2e) GET /auth/me Tenant Admin 应能获取个人信息（含租户信息）" name="AuthController (e2e) GET /auth/me Tenant Admin 应能获取个人信息（含租户信息）" time="0.002">
+    </testcase>
+    <testcase classname="AuthController (e2e) GET /auth/me 无 Token 应返回 401" name="AuthController (e2e) GET /auth/me 无 Token 应返回 401" time="0.002">
+    </testcase>
+    <testcase classname="AuthController (e2e) GET /auth/me 无效的 Token 应返回 401" name="AuthController (e2e) GET /auth/me 无效的 Token 应返回 401" time="0.002">
+    </testcase>
+    <testcase classname="AuthController (e2e) GET /auth/me 过期的 Token 应返回 401" name="AuthController (e2e) GET /auth/me 过期的 Token 应返回 401" time="0.001">
+    </testcase>
+    <testcase classname="AuthController (e2e) 响应时间 登录应在 500ms 内完成" name="AuthController (e2e) 响应时间 登录应在 500ms 内完成" time="0.041">
+    </testcase>
+    <testcase classname="AuthController (e2e) 响应时间 获取个人信息应在 200ms 内完成" name="AuthController (e2e) 响应时间 获取个人信息应在 200ms 内完成" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="PlatformAdminsController (e2e)" errors="0" failures="0" skipped="0" timestamp="2025-12-03T14:07:20" time="3.424" tests="49">
+    <testcase classname="PlatformAdminsController (e2e) Authentication &amp; Authorization 无 Token 访问应返回 401" name="PlatformAdminsController (e2e) Authentication &amp; Authorization 无 Token 访问应返回 401" time="0.035">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) Authentication &amp; Authorization 无效 Token 应返回 401" name="PlatformAdminsController (e2e) Authentication &amp; Authorization 无效 Token 应返回 401" time="0.006">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) Authentication &amp; Authorization 过期 Token 应返回 401" name="PlatformAdminsController (e2e) Authentication &amp; Authorization 过期 Token 应返回 401" time="0.005">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) Authentication &amp; Authorization Tenant Admin Token 访问应返回 403" name="PlatformAdminsController (e2e) Authentication &amp; Authorization Tenant Admin Token 访问应返回 403" time="0.005">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) GET /platform-admins Super Admin 应能获取所有平台管理员列表" name="PlatformAdminsController (e2e) GET /platform-admins Super Admin 应能获取所有平台管理员列表" time="0.005">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) GET /platform-admins Regular Admin 应能获取管理员列表" name="PlatformAdminsController (e2e) GET /platform-admins Regular Admin 应能获取管理员列表" time="0.003">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) GET /platform-admins Operator 应能获取管理员列表" name="PlatformAdminsController (e2e) GET /platform-admins Operator 应能获取管理员列表" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) GET /platform-admins 空列表应返回空数组" name="PlatformAdminsController (e2e) GET /platform-admins 空列表应返回空数组" time="0.004">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) GET /platform-admins/:id 应能获取指定管理员详情" name="PlatformAdminsController (e2e) GET /platform-admins/:id 应能获取指定管理员详情" time="0.006">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) GET /platform-admins/:id 不存在的管理员应返回 404" name="PlatformAdminsController (e2e) GET /platform-admins/:id 不存在的管理员应返回 404" time="0.005">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) GET /platform-admins/:id Regular Admin 应能查看其他管理员" name="PlatformAdminsController (e2e) GET /platform-admins/:id Regular Admin 应能查看其他管理员" time="0.005">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins Super Admin 应能创建新管理员" name="PlatformAdminsController (e2e) POST /platform-admins Super Admin 应能创建新管理员" time="0.059">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins Regular Admin 创建管理员应返回 403" name="PlatformAdminsController (e2e) POST /platform-admins Regular Admin 创建管理员应返回 403" time="0.005">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins Operator 创建管理员应返回 403" name="PlatformAdminsController (e2e) POST /platform-admins Operator 创建管理员应返回 403" time="0.003">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins 重复的邮箱应返回 409" name="PlatformAdminsController (e2e) POST /platform-admins 重复的邮箱应返回 409" time="0.004">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins 缺少必填字段应返回 400" name="PlatformAdminsController (e2e) POST /platform-admins 缺少必填字段应返回 400" time="0.006">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins 无效的邮箱格式应返回 400" name="PlatformAdminsController (e2e) POST /platform-admins 无效的邮箱格式应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins 密码太短应返回 400" name="PlatformAdminsController (e2e) POST /platform-admins 密码太短应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins 无效的角色应返回 400" name="PlatformAdminsController (e2e) POST /platform-admins 无效的角色应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins 创建 SUPER_ADMIN 角色应成功" name="PlatformAdminsController (e2e) POST /platform-admins 创建 SUPER_ADMIN 角色应成功" time="0.044">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins 创建 OPERATOR 角色应成功" name="PlatformAdminsController (e2e) POST /platform-admins 创建 OPERATOR 角色应成功" time="0.042">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) PATCH /platform-admins/:id Super Admin 应能更新管理员信息" name="PlatformAdminsController (e2e) PATCH /platform-admins/:id Super Admin 应能更新管理员信息" time="0.003">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) PATCH /platform-admins/:id Regular Admin 更新其他管理员应返回 403" name="PlatformAdminsController (e2e) PATCH /platform-admins/:id Regular Admin 更新其他管理员应返回 403" time="0.001">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) PATCH /platform-admins/:id 不存在的管理员应返回 404" name="PlatformAdminsController (e2e) PATCH /platform-admins/:id 不存在的管理员应返回 404" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) PATCH /platform-admins/:id 更新邮箱为已存在的邮箱应返回 409" name="PlatformAdminsController (e2e) PATCH /platform-admins/:id 更新邮箱为已存在的邮箱应返回 409" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) PATCH /platform-admins/:id 应能更新管理员的 isActive 状态" name="PlatformAdminsController (e2e) PATCH /platform-admins/:id 应能更新管理员的 isActive 状态" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) PATCH /platform-admins/:id Super Admin 不能禁用自己" name="PlatformAdminsController (e2e) PATCH /platform-admins/:id Super Admin 不能禁用自己" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) PATCH /platform-admins/:id 应能更新管理员角色" name="PlatformAdminsController (e2e) PATCH /platform-admins/:id 应能更新管理员角色" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) PATCH /platform-admins/:id 无效的邮箱格式应返回 400" name="PlatformAdminsController (e2e) PATCH /platform-admins/:id 无效的邮箱格式应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) DELETE /platform-admins/:id Super Admin 应能删除管理员" name="PlatformAdminsController (e2e) DELETE /platform-admins/:id Super Admin 应能删除管理员" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) DELETE /platform-admins/:id Regular Admin 删除管理员应返回 403" name="PlatformAdminsController (e2e) DELETE /platform-admins/:id Regular Admin 删除管理员应返回 403" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) DELETE /platform-admins/:id 不存在的管理员应返回 404" name="PlatformAdminsController (e2e) DELETE /platform-admins/:id 不存在的管理员应返回 404" time="0.001">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) DELETE /platform-admins/:id Super Admin 不能删除自己" name="PlatformAdminsController (e2e) DELETE /platform-admins/:id Super Admin 不能删除自己" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) DELETE /platform-admins/:id 不能删除最后一个 Super Admin" name="PlatformAdminsController (e2e) DELETE /platform-admins/:id 不能删除最后一个 Super Admin" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) DELETE /platform-admins/:id 有多个 Super Admin 时可以删除其中一个" name="PlatformAdminsController (e2e) DELETE /platform-admins/:id 有多个 Super Admin 时可以删除其中一个" time="0.001">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins/:id/change-password 应能成功修改密码" name="PlatformAdminsController (e2e) POST /platform-admins/:id/change-password 应能成功修改密码" time="0.081">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins/:id/change-password 当前密码错误应返回 400" name="PlatformAdminsController (e2e) POST /platform-admins/:id/change-password 当前密码错误应返回 400" time="0.041">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins/:id/change-password 新密码太短应返回 400" name="PlatformAdminsController (e2e) POST /platform-admins/:id/change-password 新密码太短应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins/:id/change-password 不存在的管理员应返回 404" name="PlatformAdminsController (e2e) POST /platform-admins/:id/change-password 不存在的管理员应返回 404" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins/:id/change-password 缺少必填字段应返回 400" name="PlatformAdminsController (e2e) POST /platform-admins/:id/change-password 缺少必填字段应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins/:id/reset-password Super Admin 应能重置其他管理员的密码" name="PlatformAdminsController (e2e) POST /platform-admins/:id/reset-password Super Admin 应能重置其他管理员的密码" time="0.04">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins/:id/reset-password Regular Admin 重置密码应返回 403" name="PlatformAdminsController (e2e) POST /platform-admins/:id/reset-password Regular Admin 重置密码应返回 403" time="0.003">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins/:id/reset-password Operator 重置密码应返回 403" name="PlatformAdminsController (e2e) POST /platform-admins/:id/reset-password Operator 重置密码应返回 403" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins/:id/reset-password 不存在的管理员应返回 404" name="PlatformAdminsController (e2e) POST /platform-admins/:id/reset-password 不存在的管理员应返回 404" time="0.003">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins/:id/reset-password 新密码太短应返回 400" name="PlatformAdminsController (e2e) POST /platform-admins/:id/reset-password 新密码太短应返回 400" time="0.003">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) POST /platform-admins/:id/reset-password 缺少新密码应返回 400" name="PlatformAdminsController (e2e) POST /platform-admins/:id/reset-password 缺少新密码应返回 400" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) Response Format Validation 管理员详情应包含所有必要字段" name="PlatformAdminsController (e2e) Response Format Validation 管理员详情应包含所有必要字段" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) Response Format Validation 角色值应为有效枚举" name="PlatformAdminsController (e2e) Response Format Validation 角色值应为有效枚举" time="0.002">
+    </testcase>
+    <testcase classname="PlatformAdminsController (e2e) Response Format Validation 日期字段应为有效的 ISO 格式" name="PlatformAdminsController (e2e) Response Format Validation 日期字段应为有效的 ISO 格式" time="0.001">
+    </testcase>
+  </testsuite>
+</testsuites>

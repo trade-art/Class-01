@@ -1,0 +1,36 @@
+{
+  "name": "mt5-platform",
+  "version": "1.0.0",
+  "description": "MT5 SaaS Platform - Multi-tenant management system for MT5 middleware",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:api": "npm run dev -w @mt5-platform/platform-service",
+    "dev:web": "npm run dev -w @mt5-platform/platform-console",
+    "build": "npm run build --workspaces --if-present",
+    "build:api": "npm run build -w @mt5-platform/platform-service",
+    "build:web": "npm run build -w @mt5-platform/platform-console",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "db:migrate": "npm run db:migrate -w @mt5-platform/platform-service",
+    "db:generate": "npm run db:generate -w @mt5-platform/platform-service",
+    "db:seed": "npm run db:seed -w @mt5-platform/platform-service"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "keywords": [
+    "mt5",
+    "metatrader",
+    "saas",
+    "multi-tenant",
+    "trading-platform"
+  ],
+  "author": "MT5 Platform Team",
+  "license": "UNLICENSED"
+}

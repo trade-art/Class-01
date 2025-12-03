@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/middleware-integration/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-02T06:28:37.642Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764656917631_ynt8dql1i",
+      "approvalTitle": "Middleware Integration Design Document"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-02T06:29:51.832Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764656917631_ynt8dql1i",
+      "approvalTitle": "Middleware Integration Design Document"
+    }
+  ]
+}

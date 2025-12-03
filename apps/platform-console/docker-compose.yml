@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  platform-console:
+    build:
+      context: ../..
+      dockerfile: apps/platform-console/Dockerfile
+    container_name: mt5-platform-console
+    ports:
+      - "8080:80"
+    environment:
+      - NODE_ENV=production
+    networks:
+      - mt5-network
+    depends_on:
+      - platform-api
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  platform-api:
+    image: mt5-platform-api:latest
+    container_name: mt5-platform-api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+    networks:
+      - mt5-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  mt5-network:
+    driver: bridge

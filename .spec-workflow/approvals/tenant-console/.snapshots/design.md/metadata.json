@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/tenant-console/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-02T05:38:59.676Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764653939671_hkktou326",
+      "approvalTitle": "Tenant Console Design Document"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-02T05:40:35.147Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764653939671_hkktou326",
+      "approvalTitle": "Tenant Console Design Document"
+    }
+  ]
+}
