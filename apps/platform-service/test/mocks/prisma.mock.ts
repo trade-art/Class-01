@@ -175,7 +175,7 @@ export class MockPrismaService {
         return Promise.resolve(null);
       }
       // Build result with includes
-      let result: any = { ...tenant };
+      const result: any = { ...tenant };
       if (include?.admins) {
         result.admins = this.tenantAdmins.filter((a) => a.tenantId === tenant!.id);
       }

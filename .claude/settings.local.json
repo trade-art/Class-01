@@ -33,7 +33,10 @@
       "WebSearch",
       "WebFetch(domain:docs.github.com)",
       "Bash(npx vue-tsc:*)",
-      "Bash(gh run:*)"
+      "Bash(gh run:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(gh pr create:*)",
+      "Bash(npm run lint:*)"
     ],
     "deny": [],
     "ask": []
