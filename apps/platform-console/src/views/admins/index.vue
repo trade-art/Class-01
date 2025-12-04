@@ -344,7 +344,7 @@ async function handleSave() {
   saving.value = true
   try {
     if (editingAdmin.value) {
-      const { password, ...updateData } = form
+      const { password: _password, ...updateData } = form
       await api.platformAdmins.update(editingAdmin.value.id, updateData)
       message.success(t('common.updateSuccess'))
     } else {
