@@ -3,16 +3,8 @@ name: Platform Service Tests
 on:
   push:
     branches: [main, develop]
-    paths:
-      - 'apps/platform-service/**'
-      - 'packages/shared/**'
-      - '.github/workflows/platform-service-tests.yml'
   pull_request:
     branches: [main, develop]
-    paths:
-      - 'apps/platform-service/**'
-      - 'packages/shared/**'
-      - '.github/workflows/platform-service-tests.yml'
   workflow_dispatch:
 
 env:
