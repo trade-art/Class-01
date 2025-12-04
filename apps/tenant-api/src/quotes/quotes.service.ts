@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { MiddlewareProxyService, QuoteDto as MiddlewareQuoteDto } from '../middleware-proxy';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -26,7 +26,14 @@ export class QuotesService {
    * 获取报价列表
    */
   async getList(instanceId: string, query: QuoteQueryDto): Promise<QuoteDto[]> {
-    const quotes = await this.middlewareProxy.getAllQuotes(instanceId);
+    let quotes: MiddlewareQuoteDto[];
+    try {
+      quotes = await this.middlewareProxy.getAllQuotes(instanceId);
+    } catch (error) {
+      this.logger.warn(`获取报价列表失败: ${error.message}`);
+      // 服务降级：可以返回空数组或抛出 503
+      throw new ServiceUnavailableException('中间件服务暂时不可用');
+    }
 
     let filtered = quotes.map((q) => this.mapToQuoteDto(q));
 
