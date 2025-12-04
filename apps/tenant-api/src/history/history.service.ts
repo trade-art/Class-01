@@ -156,7 +156,7 @@ export class HistoryService {
       const result = await this.middlewareProxy.getDeals(instanceId, params);
 
       // 如果指定了 login，在应用层过滤
-      let deals = result.deals;
+      const deals = result.deals;
       if (login) {
         this.logger.debug(`按 login=${login} 过滤统计数据`);
         // 如果 DealDto 包含 login 字段，可以在这里过滤
