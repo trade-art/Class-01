@@ -1,140 +1,229 @@
 # Deployment Guide
 
-## Prerequisites
+## 架构说明
 
-- Docker & Docker Compose installed
-- Domain name configured (optional for local testing)
-- SSL certificates (for production HTTPS)
+| 组件 | 开发环境 | 生产环境 |
+|------|----------|----------|
+| Platform Service | 本机 | 本机 |
+| Tenant API | 本机 | 本机 |
+| Platform Console | 本机 | 本机 (Nginx 托管) |
+| Tenant Console | 本机 | 本机 (Nginx 托管) |
+| PostgreSQL | Docker | 本机安装 |
+| Redis | Docker | Docker |
 
-## Quick Start (Local)
+## 开发环境
+
+### 1. 启动依赖服务
 
 ```bash
-# 1. Copy environment file
-cp .env.production.example .env.production
-
-# 2. Edit .env.production with your settings
-# Generate secure passwords and JWT secrets
-
-# 3. Start all services
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d
-
-# 4. Run database migrations
-docker exec mt5-platform-service npx prisma migrate deploy
-docker exec mt5-tenant-api npx prisma migrate deploy
-
-# 5. Access the applications
-# Platform Console: http://admin.localhost
-# Tenant Console: http://app.localhost
+# 启动 PostgreSQL + Redis
+docker compose up -d
 ```
 
-## Production Deployment
-
-### 1. Server Setup
+### 2. 配置环境变量
 
 ```bash
-# Update system
-apt update && apt upgrade -y
+# 各服务目录下复制 .env.example 为 .env
+cp apps/platform-service/.env.example apps/platform-service/.env
+cp apps/tenant-api/.env.example apps/tenant-api/.env
+```
 
-# Install Docker
+### 3. 数据库迁移
+
+```bash
+# Platform Service
+cd apps/platform-service
+npx prisma migrate dev
+
+# Tenant API
+cd apps/tenant-api
+npx prisma migrate dev
+```
+
+### 4. 启动服务
+
+```bash
+# 根目录
+npm run dev
+```
+
+## 生产环境部署
+
+### 1. 服务器准备
+
+```bash
+# 安装 Node.js 20
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+apt install -y nodejs
+
+# 安装 PostgreSQL
+apt install -y postgresql postgresql-contrib
+
+# 安装 Docker (仅用于 Redis)
 curl -fsSL https://get.docker.com | sh
 
-# Install Docker Compose
-apt install docker-compose-plugin
+# 安装 PM2 (进程管理)
+npm install -g pm2
+
+# 安装 Nginx
+apt install -y nginx
 ```
 
-### 2. SSL Certificates (Let's Encrypt)
+### 2. 配置 PostgreSQL
 
 ```bash
-# Install certbot
-apt install certbot
+# 切换到 postgres 用户
+sudo -u postgres psql
 
-# Generate certificates
-certbot certonly --standalone -d admin.yourdomain.com -d app.yourdomain.com
-
-# Copy certificates to nginx/ssl
-cp /etc/letsencrypt/live/yourdomain.com/fullchain.pem nginx/ssl/
-cp /etc/letsencrypt/live/yourdomain.com/privkey.pem nginx/ssl/
+# 创建数据库和用户
+CREATE USER mt5admin WITH PASSWORD 'your_secure_password';
+CREATE DATABASE mt5_platform OWNER mt5admin;
+GRANT ALL PRIVILEGES ON DATABASE mt5_platform TO mt5admin;
+\q
 ```
 
-### 3. Configure Environment
+### 3. 启动 Redis
 
 ```bash
+# 复制环境配置
 cp .env.production.example .env.production
-nano .env.production
+# 编辑 REDIS_PASSWORD
+
+# 启动 Redis
+docker compose -f docker-compose.prod.yml up -d
 ```
 
-Generate secure values:
+### 4. 部署后端服务
+
 ```bash
-# Generate random strings for JWT secrets
-openssl rand -base64 48
+# 安装依赖
+npm ci
+
+# 构建
+npm run build
+
+# Platform Service
+cd apps/platform-service
+npx prisma migrate deploy
+pm2 start dist/main.js --name platform-service
+
+# Tenant API
+cd apps/tenant-api
+npx prisma migrate deploy
+pm2 start dist/main.js --name tenant-api
+
+# 保存 PM2 配置
+pm2 save
+pm2 startup
 ```
 
-### 4. Update Nginx for HTTPS
-
-Edit `nginx/conf.d/default.conf`:
-- Uncomment SSL redirect lines
-- Add SSL server blocks
-
-### 5. Deploy
+### 5. 部署前端
 
 ```bash
-# Build and start
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+# 构建前端
+cd apps/platform-console
+npm run build
 
-# Run migrations
-docker exec mt5-platform-service npx prisma migrate deploy
-docker exec mt5-tenant-api npx prisma migrate deploy
+cd apps/tenant-console
+npm run build
 
-# Check status
-docker compose -f docker-compose.prod.yml ps
-docker compose -f docker-compose.prod.yml logs -f
+# 复制到 Nginx 目录
+cp -r apps/platform-console/dist /var/www/platform-console
+cp -r apps/tenant-console/dist /var/www/tenant-console
 ```
 
-## Maintenance
+### 6. 配置 Nginx
 
-### View Logs
-```bash
-docker compose -f docker-compose.prod.yml logs -f [service-name]
+```nginx
+# /etc/nginx/sites-available/mt5-platform
+
+# Platform Console
+server {
+    listen 80;
+    server_name admin.yourdomain.com;
+    root /var/www/platform-console;
+    index index.html;
+
+    location /api {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+
+# Tenant Console
+server {
+    listen 80;
+    server_name app.yourdomain.com;
+    root /var/www/tenant-console;
+    index index.html;
+
+    location /api {
+        proxy_pass http://localhost:3002;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /ws {
+        proxy_pass http://localhost:3002;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
 ```
 
-### Restart Services
 ```bash
-docker compose -f docker-compose.prod.yml restart [service-name]
+# 启用站点
+ln -s /etc/nginx/sites-available/mt5-platform /etc/nginx/sites-enabled/
+nginx -t
+systemctl reload nginx
 ```
 
-### Update Application
+### 7. SSL 证书 (可选)
+
 ```bash
+apt install certbot python3-certbot-nginx
+certbot --nginx -d admin.yourdomain.com -d app.yourdomain.com
+```
+
+## 维护命令
+
+```bash
+# 查看服务状态
+pm2 status
+
+# 查看日志
+pm2 logs platform-service
+pm2 logs tenant-api
+
+# 重启服务
+pm2 restart platform-service
+pm2 restart tenant-api
+
+# 更新部署
 git pull
-docker compose -f docker-compose.prod.yml up -d --build
-```
+npm ci
+npm run build
+pm2 restart all
 
-### Backup Database
-```bash
-docker exec mt5-postgres pg_dump -U mt5admin mt5_platform > backup_$(date +%Y%m%d).sql
-```
+# 数据库备份
+pg_dump -U mt5admin mt5_platform > backup_$(date +%Y%m%d).sql
 
-### Restore Database
-```bash
-docker exec -i mt5-postgres psql -U mt5admin mt5_platform < backup.sql
-```
-
-## Troubleshooting
-
-### Check Service Health
-```bash
-curl http://localhost/health
-docker compose -f docker-compose.prod.yml ps
-```
-
-### Database Connection Issues
-```bash
-docker exec mt5-postgres pg_isready -U mt5admin
-docker logs mt5-postgres
-```
-
-### View Container Logs
-```bash
-docker logs mt5-platform-service
-docker logs mt5-tenant-api
-docker logs mt5-nginx
+# 数据库恢复
+psql -U mt5admin mt5_platform < backup.sql
 ```
