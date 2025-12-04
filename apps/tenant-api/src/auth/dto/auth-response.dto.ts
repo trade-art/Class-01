@@ -1,4 +1,50 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+/**
+ * 租户信息 DTO (用于登录响应)
+ */
+export class TenantInfoDto {
+  @ApiProperty({ description: '租户 ID' })
+  id: string;
+
+  @ApiProperty({ description: '租户代码' })
+  code: string;
+
+  @ApiProperty({ description: '租户名称' })
+  name: string;
+
+  @ApiPropertyOptional({ description: 'Logo URL' })
+  logo?: string;
+
+  @ApiPropertyOptional({ description: '显示名称' })
+  displayName?: string;
+
+  @ApiPropertyOptional({ description: '主题色' })
+  primaryColor?: string;
+
+  @ApiPropertyOptional({ description: '自定义域名' })
+  customDomain?: string;
+
+  @ApiPropertyOptional({ description: 'Favicon URL' })
+  favicon?: string;
+}
+
+/**
+ * 管理员信息 DTO (用于登录响应)
+ */
+export class AdminInfoDto {
+  @ApiProperty({ description: '管理员 ID' })
+  id: string;
+
+  @ApiProperty({ description: '邮箱' })
+  email: string;
+
+  @ApiProperty({ description: '姓名' })
+  name: string;
+
+  @ApiProperty({ description: '角色', enum: ['owner', 'admin', 'operator'] })
+  role: string;
+}
 
 /**
  * 登录成功响应
@@ -25,6 +71,18 @@ export class LoginResponseDto {
     example: 'Bearer',
   })
   tokenType: string;
+
+  @ApiProperty({
+    description: '管理员信息',
+    type: AdminInfoDto,
+  })
+  admin: AdminInfoDto;
+
+  @ApiProperty({
+    description: '租户信息',
+    type: TenantInfoDto,
+  })
+  tenant: TenantInfoDto;
 }
 
 /**

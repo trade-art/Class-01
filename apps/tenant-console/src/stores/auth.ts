@@ -48,8 +48,9 @@ export const useAuthStore = defineStore(
       tenant.value = tenantData
     }
 
-    const login = async (email: string, password: string, rememberMe: boolean = false) => {
-      const response = await authApi.login({ email, password, rememberMe })
+    const login = async (email: string, password: string, tenantCode?: string, rememberMe: boolean = false) => {
+      // tenantCode 在白标域名登录时可选，后端会根据请求域名自动识别租户
+      const response = await authApi.login({ email, password, tenantCode, rememberMe })
 
       accessToken.value = response.accessToken
       refreshToken.value = response.refreshToken

@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/mt5-middleware-integration/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-04T08:13:47.521Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764836027507_mq2c2dgnq",
+      "approvalTitle": "MT5 中间件集成 - 需求文档"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-04T08:15:43.288Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764836027507_mq2c2dgnq",
+      "approvalTitle": "MT5 中间件集成 - 需求文档"
+    }
+  ]
+}

@@ -3,6 +3,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TenantWebsocketGateway } from './websocket.gateway';
 import { WebsocketService } from './websocket.service';
+import { WebSocketBridgeService } from './websocket-bridge.service';
+import { MiddlewareProxyModule } from '../middleware-proxy/middleware-proxy.module';
 
 /**
  * WebSocket 模块
@@ -17,8 +19,9 @@ import { WebsocketService } from './websocket.service';
       }),
       inject: [ConfigService],
     }),
+    MiddlewareProxyModule,
   ],
-  providers: [TenantWebsocketGateway, WebsocketService],
-  exports: [WebsocketService],
+  providers: [TenantWebsocketGateway, WebsocketService, WebSocketBridgeService],
+  exports: [WebsocketService, WebSocketBridgeService],
 })
 export class WebsocketModule {}

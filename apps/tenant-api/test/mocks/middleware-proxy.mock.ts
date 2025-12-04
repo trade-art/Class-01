@@ -200,6 +200,28 @@ export class MockMiddlewareProxyService {
   });
 
   /**
+   * 获取所有报价 (用于 QuotesService)
+   */
+  getAllQuotes = jest.fn().mockImplementation(async (instanceId: string) => {
+    if (!this.isConnected) {
+      throw new Error('Middleware service unavailable');
+    }
+    return TEST_QUOTES;
+  });
+
+  /**
+   * 获取指定品种列表的报价 (用于 QuotesService 自选功能)
+   */
+  getQuotesBySymbols = jest.fn().mockImplementation(
+    async (instanceId: string, symbols: string[]) => {
+      if (!this.isConnected) {
+        throw new Error('Middleware service unavailable');
+      }
+      return TEST_QUOTES.filter((q) => symbols.includes(q.symbol));
+    },
+  );
+
+  /**
    * 获取交易历史
    */
   getDeals = jest.fn().mockImplementation(

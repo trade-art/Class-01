@@ -41,9 +41,17 @@ api.interceptors.response.use(
   },
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+    const originalUrl = originalRequest?.url || ''
 
-    // Handle 401 Unauthorized
+    // Handle 401 Unauthorized - skip redirect for login page
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // Don't redirect on login page 401 errors - let the login page handle it
+      if (originalUrl.includes('/auth/login')) {
+        const errorData = error.response?.data as any
+        const errorMessage = errorData?.error?.message || errorData?.message || '登录失败'
+        return Promise.reject(new Error(errorMessage))
+      }
+
       originalRequest._retry = true
 
       const authStore = useAuthStore()
@@ -51,11 +59,13 @@ api.interceptors.response.use(
       // Try to refresh token
       if (authStore.refreshToken) {
         try {
-          const response = await axios.post(`${baseURL}/auth/refresh`, {
+          const response = await axios.post(`${baseURL}/tenant/auth/refresh`, {
             refreshToken: authStore.refreshToken,
           })
 
-          const { accessToken, refreshToken } = response.data
+          // 解包后端响应格式: { success: true, data: {...} }
+          const responseData = response.data?.data || response.data
+          const { accessToken, refreshToken } = responseData
           authStore.setTokens(accessToken, refreshToken)
 
           // Retry original request
@@ -74,25 +84,37 @@ api.interceptors.response.use(
       }
     }
 
-    // Handle other errors
-    return Promise.reject(error)
+    // Extract error message from response
+    // Backend format: { success: false, error: { code, message, ... } }
+    const errorData = error.response?.data as any
+    const errorMessage = errorData?.error?.message || errorData?.message || error.message || '请求失败'
+
+    return Promise.reject(new Error(errorMessage))
   }
 )
 
 export default api
 
+// Helper to unwrap response format: { success: true, data: {...} }
+function unwrapResponse<T>(data: any): T {
+  if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
+    return data.data
+  }
+  return data
+}
+
 // Export typed request methods
 export const get = <T>(url: string, params?: any) =>
-  api.get<T>(url, { params }).then((res) => res.data)
+  api.get<T>(url, { params }).then((res) => unwrapResponse<T>(res.data))
 
 export const post = <T>(url: string, data?: any, config?: any) =>
-  api.post<T>(url, data, config).then((res) => res.data)
+  api.post<T>(url, data, config).then((res) => unwrapResponse<T>(res.data))
 
 export const put = <T>(url: string, data?: any) =>
-  api.put<T>(url, data).then((res) => res.data)
+  api.put<T>(url, data).then((res) => unwrapResponse<T>(res.data))
 
 export const patch = <T>(url: string, data?: any) =>
-  api.patch<T>(url, data).then((res) => res.data)
+  api.patch<T>(url, data).then((res) => unwrapResponse<T>(res.data))
 
 export const del = <T>(url: string) =>
-  api.delete<T>(url).then((res) => res.data)
+  api.delete<T>(url).then((res) => unwrapResponse<T>(res.data))

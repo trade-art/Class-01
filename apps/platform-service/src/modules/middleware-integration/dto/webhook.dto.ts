@@ -136,3 +136,56 @@ export class WebhookHeadersDto {
   'x-webhook-timestamp': string;
   'x-instance-id': string;
 }
+
+/**
+ * MT5 连接事件 DTO (mt5-middleware-integration Task 11)
+ * 用于 mt5.connected 和 mt5.disconnected 事件
+ */
+export class MT5ConnectionEventDto {
+  @ApiProperty({ description: 'MT5 服务器 ID' })
+  @IsString()
+  serverId: string;
+
+  @ApiPropertyOptional({ description: '服务器名称' })
+  @IsOptional()
+  @IsString()
+  serverName?: string;
+
+  @ApiPropertyOptional({ description: '连接/断开原因' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @ApiPropertyOptional({ description: '连接延迟 (ms)' })
+  @IsOptional()
+  @IsNumber()
+  latencyMs?: number;
+
+  @ApiPropertyOptional({ description: '时间戳' })
+  @IsOptional()
+  @IsDateString()
+  timestamp?: string;
+}
+
+/**
+ * 健康检查失败事件 DTO (mt5-middleware-integration Task 11)
+ */
+export class HealthCheckFailedEventDto {
+  @ApiProperty({ description: '组件名称 (mt5, redis, database)' })
+  @IsString()
+  component: string;
+
+  @ApiProperty({ description: '错误消息' })
+  @IsString()
+  errorMessage: string;
+
+  @ApiPropertyOptional({ description: '连续失败次数' })
+  @IsOptional()
+  @IsNumber()
+  consecutiveFailures?: number;
+
+  @ApiPropertyOptional({ description: '最后检查时间' })
+  @IsOptional()
+  @IsDateString()
+  lastCheckAt?: string;
+}

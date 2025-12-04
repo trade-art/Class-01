@@ -71,6 +71,10 @@ export const WEBHOOK_EVENTS = {
   MT5_DISCONNECT: 'mt5_disconnect',
   MT5_RECONNECT: 'mt5_reconnect',
   ERROR: 'error',
+  // 中间件特定事件 (mt5-middleware-integration Task 11)
+  MT5_CONNECTED: 'mt5.connected',
+  MT5_DISCONNECTED: 'mt5.disconnected',
+  HEALTH_CHECK_FAILED: 'health.check_failed',
 } as const;
 
 // 事件严重级别

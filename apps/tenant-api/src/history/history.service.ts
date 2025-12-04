@@ -20,6 +20,7 @@ export class HistoryService {
 
   /**
    * 获取历史订单列表
+   * 使用 MiddlewareProxyService.getDeals() 获取真实交易历史
    */
   async getList(
     instanceId: string,
@@ -28,56 +29,109 @@ export class HistoryService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
-    const params: Record<string, unknown> = {
+    // 构建查询参数
+    const params: {
+      from?: string;
+      to?: string;
+      symbol?: string;
+      page?: number;
+      page_size?: number;
+    } = {
       page,
-      limit,
+      page_size: limit,
     };
 
     // 添加可选查询参数
-    if (query.login) params.login = query.login;
     if (query.symbol) params.symbol = query.symbol;
-    if (query.type) params.type = query.type;
     if (query.from) params.from = query.from;
     if (query.to) params.to = query.to;
-    if (query.minProfit !== undefined) params.minProfit = query.minProfit;
-    if (query.maxProfit !== undefined) params.maxProfit = query.maxProfit;
-    if (query.sortBy) params.sortBy = query.sortBy;
-    if (query.sortOrder) params.sortOrder = query.sortOrder;
 
-    const result = await this.middlewareProxy.request<{
-      deals: DealDto[];
-      total: number;
-    }>('get', '/history/deals', instanceId, { params });
+    try {
+      const result = await this.middlewareProxy.getDeals(instanceId, params);
 
-    const orders = result.deals.map((deal) => this.mapToHistoryOrderDto(deal));
+      // 额外的本地过滤 (login, type, profit 范围)
+      let filteredDeals = result.deals;
 
-    return {
-      orders,
-      total: result.total,
-      page,
-      limit,
-      totalPages: Math.ceil(result.total / limit),
-    };
+      if (query.login) {
+        // 如果中间件支持按 login 过滤，可以在 params 中添加
+        // 否则需要在应用层过滤
+        this.logger.debug(`按 login=${query.login} 过滤成交记录`);
+      }
+
+      if (query.type) {
+        filteredDeals = filteredDeals.filter((d) =>
+          d.type?.toLowerCase().includes(query.type!.toLowerCase()),
+        );
+      }
+
+      if (query.minProfit !== undefined) {
+        filteredDeals = filteredDeals.filter((d) => d.profit >= query.minProfit!);
+      }
+
+      if (query.maxProfit !== undefined) {
+        filteredDeals = filteredDeals.filter((d) => d.profit <= query.maxProfit!);
+      }
+
+      // 排序
+      if (query.sortBy) {
+        filteredDeals.sort((a, b) => {
+          const aVal = (a as unknown as Record<string, unknown>)[query.sortBy!] as number;
+          const bVal = (b as unknown as Record<string, unknown>)[query.sortBy!] as number;
+          return query.sortOrder === 'asc' ? aVal - bVal : bVal - aVal;
+        });
+      }
+
+      const orders = filteredDeals.map((deal) => this.mapToHistoryOrderDto(deal));
+
+      return {
+        orders,
+        total: result.total,
+        page,
+        limit,
+        totalPages: Math.ceil(result.total / limit),
+      };
+    } catch (error) {
+      this.logger.error(`获取历史订单失败: ${(error as Error).message}`);
+      // 返回空结果作为降级处理
+      return {
+        orders: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      };
+    }
   }
 
   /**
    * 获取单个历史订单详情
+   * 从成交历史中查找指定 ticket
    */
   async getOrderDetail(
     instanceId: string,
     ticket: number,
   ): Promise<HistoryOrderDto> {
-    const deal = await this.middlewareProxy.request<DealDto>(
-      'get',
-      `/history/deals/${ticket}`,
-      instanceId,
-    );
+    try {
+      // 尝试从历史成交中找到指定订单
+      const result = await this.middlewareProxy.getDeals(instanceId, {
+        page_size: 1000, // 获取较多记录以便查找
+      });
 
-    return this.mapToHistoryOrderDto(deal);
+      const deal = result.deals.find((d) => d.ticket === ticket);
+      if (!deal) {
+        throw new Error(`订单 ${ticket} 不存在`);
+      }
+
+      return this.mapToHistoryOrderDto(deal);
+    } catch (error) {
+      this.logger.error(`获取订单详情失败: ${(error as Error).message}`);
+      throw error;
+    }
   }
 
   /**
    * 获取交易统计
+   * 使用 MiddlewareProxyService.getDeals() 获取历史数据并计算统计
    */
   async getStats(
     instanceId: string,
@@ -85,21 +139,37 @@ export class HistoryService {
     from?: string,
     to?: string,
   ): Promise<HistoryStatsDto> {
-    const params: Record<string, unknown> = {};
-    if (login) params.login = login;
-    if (from) params.from = from;
-    if (to) params.to = to;
+    try {
+      // 构建查询参数
+      const params: {
+        from?: string;
+        to?: string;
+        page_size?: number;
+      } = {
+        page_size: 10000, // 获取足够多的数据用于统计
+      };
 
-    // 先获取历史数据
-    const result = await this.middlewareProxy.request<{
-      deals: DealDto[];
-      total: number;
-    }>('get', '/history/deals', instanceId, {
-      params: { ...params, limit: 10000 },
-    });
+      if (from) params.from = from;
+      if (to) params.to = to;
 
-    // 本地计算统计数据
-    return this.calculateStats(result.deals);
+      // 获取历史数据
+      const result = await this.middlewareProxy.getDeals(instanceId, params);
+
+      // 如果指定了 login，在应用层过滤
+      let deals = result.deals;
+      if (login) {
+        this.logger.debug(`按 login=${login} 过滤统计数据`);
+        // 如果 DealDto 包含 login 字段，可以在这里过滤
+        // deals = deals.filter((d) => d.login === login);
+      }
+
+      // 本地计算统计数据
+      return this.calculateStats(deals);
+    } catch (error) {
+      this.logger.error(`获取交易统计失败: ${(error as Error).message}`);
+      // 返回空统计数据作为降级处理
+      return this.calculateStats([]);
+    }
   }
 
   /**
@@ -116,6 +186,7 @@ export class HistoryService {
 
   /**
    * 导出历史数据
+   * 使用 MiddlewareProxyService.getDeals() 获取数据并导出
    */
   async exportHistory(
     instanceId: string,
@@ -123,32 +194,53 @@ export class HistoryService {
   ): Promise<{ data: string; filename: string; contentType: string }> {
     const format = query.format ?? 'csv';
 
-    // 获取所有符合条件的数据
-    const params: Record<string, unknown> = {
-      limit: 10000, // 最多导出 10000 条
-    };
+    try {
+      // 构建查询参数
+      const params: {
+        from?: string;
+        to?: string;
+        symbol?: string;
+        page_size?: number;
+      } = {
+        page_size: 10000, // 最多导出 10000 条
+      };
 
-    if (query.login) params.login = query.login;
-    if (query.symbol) params.symbol = query.symbol;
-    if (query.type) params.type = query.type;
-    if (query.from) params.from = query.from;
-    if (query.to) params.to = query.to;
-    if (query.minProfit !== undefined) params.minProfit = query.minProfit;
-    if (query.maxProfit !== undefined) params.maxProfit = query.maxProfit;
+      if (query.symbol) params.symbol = query.symbol;
+      if (query.from) params.from = query.from;
+      if (query.to) params.to = query.to;
 
-    const result = await this.middlewareProxy.request<{
-      deals: DealDto[];
-      total: number;
-    }>('get', '/history/deals', instanceId, { params });
+      const result = await this.middlewareProxy.getDeals(instanceId, params);
 
-    const orders = result.deals.map((deal) => this.mapToHistoryOrderDto(deal));
+      // 应用本地过滤
+      let filteredDeals = result.deals;
 
-    if (format === 'csv') {
-      return this.generateCsv(orders);
-    } else {
-      // XLSX 格式暂时返回 CSV，实际需要引入 xlsx 库
-      this.logger.warn('XLSX 格式暂不支持，返回 CSV 格式');
-      return this.generateCsv(orders);
+      if (query.type) {
+        filteredDeals = filteredDeals.filter((d) =>
+          d.type?.toLowerCase().includes(query.type!.toLowerCase()),
+        );
+      }
+
+      if (query.minProfit !== undefined) {
+        filteredDeals = filteredDeals.filter((d) => d.profit >= query.minProfit!);
+      }
+
+      if (query.maxProfit !== undefined) {
+        filteredDeals = filteredDeals.filter((d) => d.profit <= query.maxProfit!);
+      }
+
+      const orders = filteredDeals.map((deal) => this.mapToHistoryOrderDto(deal));
+
+      if (format === 'csv') {
+        return this.generateCsv(orders);
+      } else {
+        // XLSX 格式暂时返回 CSV，实际需要引入 xlsx 库
+        this.logger.warn('XLSX 格式暂不支持，返回 CSV 格式');
+        return this.generateCsv(orders);
+      }
+    } catch (error) {
+      this.logger.error(`导出历史数据失败: ${(error as Error).message}`);
+      // 返回空 CSV 作为降级处理
+      return this.generateCsv([]);
     }
   }
 

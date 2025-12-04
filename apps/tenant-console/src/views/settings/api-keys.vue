@@ -271,7 +271,16 @@ const loadApiKeys = async () => {
   loading.value = true
   try {
     const response = await settingsApi.getApiKeys()
-    apiKeys.value = (response as any).items || response as any
+    // 后端返回 { apiKeys: [...], total: number } 格式
+    const data = response as any
+    const keyList = data.apiKeys || data.items || (Array.isArray(data) ? data : [])
+    // 映射字段名差异
+    apiKeys.value = keyList.map((key: any) => ({
+      ...key,
+      // 兼容后端字段名
+      prefix: key.prefix || key.keyPrefix,
+      status: key.status || (key.isActive ? 'active' : 'revoked'),
+    }))
   } catch (error) {
     console.error('Failed to load API keys:', error)
   } finally {

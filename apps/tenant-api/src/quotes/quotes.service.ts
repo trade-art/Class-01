@@ -26,7 +26,7 @@ export class QuotesService {
    * 获取报价列表
    */
   async getList(instanceId: string, query: QuoteQueryDto): Promise<QuoteDto[]> {
-    const quotes = await this.middlewareProxy.getQuotes(instanceId);
+    const quotes = await this.middlewareProxy.getAllQuotes(instanceId);
 
     let filtered = quotes.map((q) => this.mapToQuoteDto(q));
 

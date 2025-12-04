@@ -11,16 +11,34 @@ export const useTenantStore = defineStore(
     const branding = ref<TenantBranding | null>(null)
     const loading = ref(false)
 
-    // Getters
-    const companyName = computed(() => branding.value?.companyName || tenant.value?.name || 'Tenant Console')
-    const logoUrl = computed(() => branding.value?.logoUrl || null)
-    const faviconUrl = computed(() => branding.value?.faviconUrl || null)
-    const primaryColor = computed(() => branding.value?.primaryColor || '#18a058')
+    // Getters - 支持白标字段和传统 branding 字段
+    const companyName = computed(() =>
+      tenant.value?.displayName || branding.value?.companyName || tenant.value?.name || 'Tenant Console'
+    )
+    const logoUrl = computed(() =>
+      tenant.value?.logo || branding.value?.logoUrl || tenant.value?.logoUrl || null
+    )
+    const faviconUrl = computed(() =>
+      tenant.value?.favicon || branding.value?.faviconUrl || tenant.value?.faviconUrl || null
+    )
+    const primaryColor = computed(() =>
+      tenant.value?.primaryColor || branding.value?.primaryColor || '#18a058'
+    )
+    const customDomain = computed(() => tenant.value?.customDomain || null)
 
     // Actions
     const setTenant = (tenantData: Tenant) => {
       tenant.value = tenantData
-      if (tenantData.branding) {
+      // 如果有白标字段，同步到 branding
+      if (tenantData.logo || tenantData.displayName || tenantData.primaryColor) {
+        branding.value = {
+          ...branding.value,
+          logoUrl: tenantData.logo || branding.value?.logoUrl,
+          companyName: tenantData.displayName || branding.value?.companyName,
+          primaryColor: tenantData.primaryColor || branding.value?.primaryColor,
+          faviconUrl: tenantData.favicon || branding.value?.faviconUrl,
+        }
+      } else if (tenantData.branding) {
         branding.value = tenantData.branding
       }
     }
@@ -86,6 +104,7 @@ export const useTenantStore = defineStore(
       logoUrl,
       faviconUrl,
       primaryColor,
+      customDomain,
 
       // Actions
       setTenant,

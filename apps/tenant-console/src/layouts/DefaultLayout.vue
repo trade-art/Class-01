@@ -318,9 +318,17 @@ const handleUserMenuSelect = async (key: string) => {
   if (key === 'profile') {
     router.push('/settings/profile')
   } else if (key === 'logout') {
-    await authStore.logout()
-    message.success(t('auth.logout'))
-    router.push('/login')
+    try {
+      await authStore.logout()
+      tenantStore.clear()
+      message.success(t('auth.logout'))
+    } catch (error) {
+      // 忽略 logout API 错误
+      console.error('Logout error:', error)
+    } finally {
+      // 确保无论如何都跳转到登录页面
+      router.push('/login')
+    }
   }
 }
 </script>

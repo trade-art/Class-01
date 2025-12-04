@@ -279,7 +279,8 @@ async function loadTenantRanking() {
     const result = await api.tradingData.getTenantRanking({ period: filters.period, limit: 10 }) as any
     tenantRanking.value = Array.isArray(result) ? result : (result.data || [])
   } catch {
-    message.error(t('trading.loadFailed'))
+    // API not implemented yet, silently fail with empty data
+    tenantRanking.value = []
   } finally {
     loadingRanking.value = false
   }
@@ -291,7 +292,8 @@ async function loadSymbolDistribution() {
     const result = await api.tradingData.getSymbolDistribution({ period: filters.period }) as any
     symbolDistribution.value = Array.isArray(result) ? result : (result.data || [])
   } catch {
-    // ignore
+    // API not implemented yet, silently fail with empty data
+    symbolDistribution.value = []
   } finally {
     loadingSymbol.value = false
   }

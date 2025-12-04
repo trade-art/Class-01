@@ -229,8 +229,20 @@ const previewStyle = computed(() => ({
 const loadBranding = async () => {
   loading.value = true
   try {
-    const data = await settingsApi.getBranding()
-    Object.assign(formData, data)
+    const data = await settingsApi.getBranding() as any
+    // 映射后端字段名到前端 formData 字段名
+    Object.assign(formData, {
+      logoUrl: data.logoUrl || data.logo || formData.logoUrl,
+      faviconUrl: data.faviconUrl || data.favicon || formData.faviconUrl,
+      companyName: data.companyName || data.displayName || formData.companyName,
+      companyEmail: data.companyEmail || formData.companyEmail,
+      companyPhone: data.companyPhone || formData.companyPhone,
+      companyAddress: data.companyAddress || formData.companyAddress,
+      website: data.website || formData.website,
+      primaryColor: data.primaryColor || formData.primaryColor,
+      defaultTheme: data.defaultTheme || formData.defaultTheme,
+      defaultLanguage: data.defaultLanguage || formData.defaultLanguage,
+    })
   } catch (error) {
     console.error('Failed to load branding:', error)
   } finally {

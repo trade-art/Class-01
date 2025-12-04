@@ -29,21 +29,60 @@ export class AuthService {
 
   /**
    * 管理员登录
+   * @param loginDto 登录信息
+   * @param domain 可选的请求域名，用于白标识别
    */
-  async login(loginDto: LoginDto): Promise<LoginResponseDto> {
-    const { email, password } = loginDto;
+  async login(loginDto: LoginDto, domain?: string): Promise<LoginResponseDto> {
+    const { email, password, tenantCode } = loginDto;
 
-    // 查找管理员 - TenantAdmin 使用复合唯一键 (tenantId, email)
-    // 需要先按 email 查找所有匹配的管理员
+    // 优先通过 tenantCode 或 domain 确定租户
+    let targetTenantId: string | undefined;
+
+    if (tenantCode) {
+      // 通过租户代码查找
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { code: tenantCode },
+        select: { id: true },
+      });
+      if (!tenant) {
+        throw BusinessException.unauthorized(
+          ErrorCodes.AUTH_401_001,
+          '租户代码无效',
+        );
+      }
+      targetTenantId = tenant.id;
+    } else if (domain) {
+      // 通过自定义域名查找
+      const tenant = await this.prisma.tenant.findFirst({
+        where: { customDomain: domain },
+        select: { id: true },
+      });
+      if (tenant) {
+        targetTenantId = tenant.id;
+      }
+    }
+
+    // 查找管理员
+    const whereCondition: any = { email };
+    if (targetTenantId) {
+      whereCondition.tenantId = targetTenantId;
+    }
+
     const admins = await this.prisma.tenantAdmin.findMany({
-      where: { email },
+      where: whereCondition,
       include: {
         tenant: {
           select: {
             id: true,
+            code: true,
             name: true,
             status: true,
             expiresAt: true,
+            logo: true,
+            displayName: true,
+            primaryColor: true,
+            customDomain: true,
+            favicon: true,
           },
         },
       },
@@ -56,7 +95,8 @@ export class AuthService {
       );
     }
 
-    // 找到第一个有效的管理员 (如果同一邮箱在多个租户存在)
+    // 如果指定了租户，只验证该租户下的管理员
+    // 否则遍历所有匹配的管理员验证密码
     let matchedAdmin = null;
     for (const admin of admins) {
       const isPasswordValid = await bcrypt.compare(password, admin.password);
@@ -112,7 +152,7 @@ export class AuthService {
     const instanceId = instances[0]?.id || '';
 
     // 生成 Token - 转换角色为小写
-    const tokens = await this.generateTokens({
+    const tokens = await this.generateTokensOnly({
       sub: matchedAdmin.id,
       email: matchedAdmin.email,
       role: matchedAdmin.role.toLowerCase() as 'owner' | 'admin' | 'operator',
@@ -130,7 +170,26 @@ export class AuthService {
 
     this.logger.log(`管理员登录成功: ${matchedAdmin.email}`);
 
-    return tokens;
+    // 返回完整的登录响应
+    return {
+      ...tokens,
+      admin: {
+        id: matchedAdmin.id,
+        email: matchedAdmin.email,
+        name: matchedAdmin.name,
+        role: matchedAdmin.role.toLowerCase(),
+      },
+      tenant: {
+        id: matchedAdmin.tenant.id,
+        code: matchedAdmin.tenant.code,
+        name: matchedAdmin.tenant.name,
+        logo: matchedAdmin.tenant.logo || undefined,
+        displayName: matchedAdmin.tenant.displayName || undefined,
+        primaryColor: matchedAdmin.tenant.primaryColor || undefined,
+        customDomain: matchedAdmin.tenant.customDomain || undefined,
+        favicon: matchedAdmin.tenant.favicon || undefined,
+      },
+    };
   }
 
   /**
@@ -174,13 +233,18 @@ export class AuthService {
       const instanceId = instances[0]?.id || '';
 
       // 生成新的 Token
-      return this.generateTokens({
+      const tokens = await this.generateTokensOnly({
         sub: admin.id,
         email: admin.email,
         role: admin.role.toLowerCase() as 'owner' | 'admin' | 'operator',
         tenantId: admin.tenantId,
         instanceId,
       });
+      return {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresIn: tokens.expiresIn,
+      };
     } catch {
       throw BusinessException.unauthorized(
         ErrorCodes.AUTH_401_002,
@@ -276,11 +340,11 @@ export class AuthService {
   }
 
   /**
-   * 生成访问令牌和刷新令牌
+   * 生成访问令牌和刷新令牌 (仅 tokens)
    */
-  private async generateTokens(
+  private async generateTokensOnly(
     payload: JwtPayload,
-  ): Promise<LoginResponseDto> {
+  ): Promise<{ accessToken: string; refreshToken: string; expiresIn: number; tokenType: string }> {
     const expiresIn = this.configService.get<string>('jwt.expiresIn')!;
     const refreshExpiresIn = this.configService.get<string>(
       'jwt.refreshExpiresIn',

@@ -40,14 +40,30 @@ request.interceptors.request.use(
 
 // Response interceptor
 request.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    // Handle wrapped response format: { success: true, data: {...} }
+    const data = response.data
+    if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
+      return data.data
+    }
+    return data
+  },
   async (error) => {
-    if (error.response?.status === 401) {
+    const originalUrl = error.config?.url || ''
+
+    // Don't redirect on login page 401 errors - let the login page handle it
+    if (error.response?.status === 401 && !originalUrl.includes('/auth/login')) {
       localStorage.removeItem('token')
       localStorage.removeItem('refreshToken')
       window.location.href = '/login'
     }
-    return Promise.reject(error.response?.data || error)
+
+    // Extract error message from response
+    // Backend format: { success: false, error: { code, message, ... } }
+    const errorData = error.response?.data
+    const errorMessage = errorData?.error?.message || errorData?.message || error.message || 'Request failed'
+
+    return Promise.reject(new Error(errorMessage))
   }
 )
 

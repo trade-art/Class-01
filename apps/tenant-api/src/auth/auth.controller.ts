@@ -1,4 +1,5 @@
-import { Controller, Post, Get, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, HttpCode, HttpStatus, Req } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -32,8 +33,20 @@ export class AuthController {
     type: LoginResponseDto,
   })
   @ApiResponse({ status: 401, description: '用户名或密码错误' })
-  async login(@Body() loginDto: LoginDto): Promise<LoginResponseDto> {
-    return this.authService.login(loginDto);
+  async login(
+    @Body() loginDto: LoginDto,
+    @Req() req: Request,
+  ): Promise<LoginResponseDto> {
+    // 从请求头提取域名用于白标识别
+    // 优先使用 X-Forwarded-Host (反向代理场景)，其次是 Host
+    const forwardedHost = req.headers['x-forwarded-host'] as string;
+    const host = req.headers['host'] as string;
+    const domain = forwardedHost || host;
+
+    // 移除端口号，只保留域名部分
+    const cleanDomain = domain?.split(':')[0];
+
+    return this.authService.login(loginDto, cleanDomain);
   }
 
   @Public()

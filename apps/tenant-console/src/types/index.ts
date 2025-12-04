@@ -2,6 +2,7 @@
 export interface LoginRequest {
   email: string
   password: string
+  tenantCode?: string // 可选：白标域名登录时不需要
   rememberMe?: boolean
 }
 
@@ -22,13 +23,20 @@ export interface Tenant {
   id: string
   code: string
   name: string
-  status: TenantStatus
-  subscriptionPlan: string
+  status?: TenantStatus
+  subscriptionPlan?: string
   branding?: TenantBranding
+  // 白标相关字段
+  logo?: string
+  displayName?: string
+  primaryColor?: string
+  customDomain?: string
+  favicon?: string
+  // 兼容旧字段
   logoUrl?: string
   faviconUrl?: string
-  createdAt: string
-  updatedAt: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 export type TenantStatus = 'active' | 'pending' | 'suspended' | 'expired' | 'cancelled'

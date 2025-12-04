@@ -52,11 +52,11 @@ describe('HealthCheckerService', () => {
     status: 'healthy',
     service: 'mt5-middleware',
     version: '1.0.0',
-    timestamp: new Date().toISOString(),
-    components: [
-      { name: 'MT5', status: 'up', details: { message: 'Connected' } },
-      { name: 'Redis', status: 'up', details: { message: 'OK' } },
-    ],
+    timestamp: Math.floor(Date.now() / 1000),
+    components: {
+      mt5: { name: 'MT5', status: 'healthy', details: { message: 'Connected' } },
+      redis: { name: 'Redis', status: 'healthy', details: { message: 'OK' } },
+    },
   };
 
   beforeEach(async () => {

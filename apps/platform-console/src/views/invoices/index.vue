@@ -314,7 +314,7 @@ async function loadInvoices() {
   try {
     const params: any = {
       page: pagination.page,
-      pageSize: pagination.pageSize,
+      limit: pagination.pageSize,
     }
     if (filters.search) params.search = filters.search
     if (filters.status) params.status = filters.status

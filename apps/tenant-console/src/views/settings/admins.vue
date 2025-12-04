@@ -231,7 +231,17 @@ const loadAdmins = async () => {
   loading.value = true
   try {
     const response = await settingsApi.getAdmins()
-    admins.value = (response as any).items || response as any
+    // 后端返回 { admins: [...], total: number } 格式
+    const data = response as any
+    const adminList = data.admins || data.items || (Array.isArray(data) ? data : [])
+    // 映射字段名差异
+    admins.value = adminList.map((admin: any) => ({
+      ...admin,
+      // 兼容后端字段名
+      lastLoginAt: admin.lastLoginAt || admin.lastLogin,
+      status: admin.status || (admin.isActive ? 'active' : 'inactive'),
+      role: admin.role?.toLowerCase() || admin.role,
+    }))
   } catch (error) {
     console.error('Failed to load admins:', error)
   } finally {

@@ -48,6 +48,8 @@ model Tenant {
   logo         String?  // Logo URL
   displayName  String?  // Custom display name for tenant's console
   primaryColor String?  // Primary theme color (hex format: #XXXXXX)
+  customDomain String?  @unique // Custom domain for white-label (e.g., trading.client.com)
+  favicon      String?  // Favicon URL
 
   status      TenantStatus @default(PENDING)
 

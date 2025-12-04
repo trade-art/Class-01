@@ -10,6 +10,8 @@ import {
   MiddlewareHealth,
   HealthSummary,
   InstanceStatus,
+  ComponentHealth,
+  HealthMetrics,
 } from '../interfaces/middleware-health.interface';
 import { HEALTH_CHECK_CONFIG, CACHE_KEYS, CACHE_TTL } from '../constants/middleware.constants';
 
@@ -473,5 +475,134 @@ export class HealthCheckerService implements OnModuleInit, OnModuleDestroy {
     const degraded = results.filter(r => r.status === 'DEGRADED').length;
 
     return `Online: ${online}, Offline: ${offline}, Error: ${error}, Degraded: ${degraded}`;
+  }
+
+  /**
+   * 从组件对象中提取组件状态列表
+   * MT5-middleware 返回 components 为对象格式
+   */
+  extractComponentsList(health: MiddlewareHealth): ComponentHealth[] {
+    if (!health.components) {
+      return [];
+    }
+
+    const components: ComponentHealth[] = [];
+
+    for (const [key, component] of Object.entries(health.components)) {
+      if (component) {
+        components.push({
+          ...component,
+          name: component.name || key,
+        });
+      }
+    }
+
+    return components;
+  }
+
+  /**
+   * 检查是否有关键组件不健康
+   */
+  hasCriticalComponentUnhealthy(health: MiddlewareHealth): boolean {
+    if (!health.components) {
+      return false;
+    }
+
+    // MT5 是关键组件
+    const mt5 = health.components.mt5;
+    if (mt5 && mt5.status === 'unhealthy') {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * 获取组件状态摘要
+   */
+  getComponentsSummary(health: MiddlewareHealth): {
+    total: number;
+    healthy: number;
+    unhealthy: number;
+    unknown: number;
+  } {
+    const components = this.extractComponentsList(health);
+
+    return {
+      total: components.length,
+      healthy: components.filter(c => c.status === 'healthy').length,
+      unhealthy: components.filter(c => c.status === 'unhealthy').length,
+      unknown: components.filter(c => c.status === 'unknown').length,
+    };
+  }
+
+  /**
+   * 获取性能指标摘要
+   */
+  getMetricsSummary(health: MiddlewareHealth): {
+    cpuPercent: number;
+    memoryPercent: number;
+    totalConnections: number;
+    errorsLastHour: number;
+  } | null {
+    if (!health.metrics) {
+      return null;
+    }
+
+    return {
+      cpuPercent: health.metrics.cpu_usage_percent ?? 0,
+      memoryPercent: health.metrics.memory_usage_percent ?? 0,
+      totalConnections: health.metrics.connections?.total ?? 0,
+      errorsLastHour: health.metrics.errors?.last_hour ?? 0,
+    };
+  }
+
+  /**
+   * 格式化运行时长为可读格式
+   */
+  formatUptime(uptimeSeconds: number | undefined): string {
+    if (!uptimeSeconds) {
+      return 'N/A';
+    }
+
+    const days = Math.floor(uptimeSeconds / 86400);
+    const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+    const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+
+    const parts: string[] = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+
+    return parts.length > 0 ? parts.join(' ') : '< 1m';
+  }
+
+  /**
+   * 获取详细健康信息（供 API 使用）
+   */
+  async getDetailedHealth(instanceId: string): Promise<{
+    instanceId: string;
+    status: InstanceStatus;
+    uptime: string;
+    components: ComponentHealth[];
+    metrics: ReturnType<typeof this.getMetricsSummary>;
+    lastChecked: Date | null;
+  } | null> {
+    const cached = this.getCachedHealth(instanceId);
+
+    if (!cached || !cached.data) {
+      return null;
+    }
+
+    const health = cached.data;
+
+    return {
+      instanceId,
+      status: cached.status,
+      uptime: this.formatUptime(health.uptime_seconds),
+      components: this.extractComponentsList(health),
+      metrics: this.getMetricsSummary(health),
+      lastChecked: cached.checkedAt,
+    };
   }
 }

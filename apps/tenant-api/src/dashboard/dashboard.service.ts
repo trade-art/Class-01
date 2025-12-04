@@ -30,8 +30,8 @@ export class DashboardService {
         this.middlewareProxy.getPositions(instanceId).catch(() => []),
         this.middlewareProxy.getServerStatus(instanceId).catch(() => null),
         this.middlewareProxy
-          .getDeals(instanceId, { limit: 10 })
-          .catch(() => ({ deals: [], total: 0 })),
+          .getDeals(instanceId, { page_size: 10 })
+          .catch(() => ({ deals: [], total: 0, page: 1, page_size: 10 })),
       ]);
 
     // 计算账户摘要

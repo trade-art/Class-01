@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/mt5-middleware-integration/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-04T08:17:40.864Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764836260855_zyle79ge4",
+      "approvalTitle": "MT5 中间件集成 - 技术设计文档"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-04T08:18:19.370Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764836260855_zyle79ge4",
+      "approvalTitle": "MT5 中间件集成 - 技术设计文档"
+    }
+  ]
+}

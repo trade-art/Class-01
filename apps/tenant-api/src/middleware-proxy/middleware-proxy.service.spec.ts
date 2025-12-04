@@ -4,7 +4,9 @@ import { ConfigService } from '@nestjs/config';
 import { of, throwError } from 'rxjs';
 import { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { MiddlewareProxyService } from './middleware-proxy.service';
-import { BusinessException } from '../common';
+import { ResponseTransformer } from './transformers';
+import { MiddlewareAuthService } from './services';
+import { BusinessException, ErrorCodes } from '../common';
 
 describe('MiddlewareProxyService', () => {
   let service: MiddlewareProxyService;
@@ -25,6 +27,34 @@ describe('MiddlewareProxyService', () => {
     }),
   };
 
+  const mockResponseTransformer = {
+    transform: jest.fn((response) => {
+      // 模拟转换逻辑
+      if (response.code === 1000 || response.success) {
+        return response.data;
+      }
+      throw new BusinessException({ code: 'MIDDLEWARE_500_001', message: '转换失败' });
+    }),
+    transformError: jest.fn((error) => {
+      throw new BusinessException({ code: 'MIDDLEWARE_500_001', message: error.message || '请求失败' });
+    }),
+  };
+
+  const mockMiddlewareAuthService = {
+    getAccessToken: jest.fn().mockResolvedValue('mock-access-token'),
+    login: jest.fn().mockResolvedValue({
+      accessToken: 'mock-access-token',
+      refreshToken: 'mock-refresh-token',
+      expiresAt: new Date(Date.now() + 3600000),
+    }),
+    getSession: jest.fn().mockResolvedValue({
+      accessToken: 'mock-access-token',
+      refreshToken: 'mock-refresh-token',
+      expiresAt: new Date(Date.now() + 3600000),
+    }),
+    clearSession: jest.fn(),
+  };
+
   const mockInstanceId = 'instance-1';
 
   beforeEach(async () => {
@@ -33,6 +63,8 @@ describe('MiddlewareProxyService', () => {
         MiddlewareProxyService,
         { provide: HttpService, useValue: mockHttpService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: ResponseTransformer, useValue: mockResponseTransformer },
+        { provide: MiddlewareAuthService, useValue: mockMiddlewareAuthService },
       ],
     }).compile();
 
@@ -171,7 +203,7 @@ describe('MiddlewareProxyService', () => {
         { symbol: 'GBPUSD', bid: 1.265, ask: 1.2652 },
       ];
       const mockResponse: AxiosResponse = {
-        data: { success: true, data: mockQuotes },
+        data: { code: 1000, message: 'success', data: mockQuotes, timestamp: Date.now() },
         status: 200,
         statusText: 'OK',
         headers: {},
@@ -179,7 +211,8 @@ describe('MiddlewareProxyService', () => {
       };
       mockHttpService.request.mockReturnValue(of(mockResponse));
 
-      const result = await service.getQuotes(mockInstanceId);
+      const symbols = ['EURUSD', 'GBPUSD'];
+      const result = await service.getQuotes(mockInstanceId, symbols);
 
       expect(result).toEqual(mockQuotes);
     });

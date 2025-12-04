@@ -22,6 +22,8 @@ import {
   CircuitBreakerChangeDto,
   PerformanceMetricsDto,
   ErrorReportDto,
+  MT5ConnectionEventDto,
+  HealthCheckFailedEventDto,
 } from '../dto/webhook.dto';
 
 /**
@@ -232,6 +234,100 @@ export class WebhookController {
   }
 
   /**
+   * MT5 连接事件端点 (mt5-middleware-integration Task 11)
+   */
+  @Post('mt5/connected')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '接收 MT5 连接成功事件' })
+  @ApiHeader({ name: 'x-webhook-signature', description: 'Webhook 签名' })
+  @ApiHeader({ name: 'x-webhook-timestamp', description: '时间戳' })
+  @ApiHeader({ name: 'x-instance-id', description: '实例 ID' })
+  async handleMT5Connected(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers('x-webhook-signature') signature: string,
+    @Headers('x-webhook-timestamp') timestamp: string,
+    @Headers('x-instance-id') instanceId: string,
+    @Body() data: MT5ConnectionEventDto,
+  ): Promise<{ received: boolean }> {
+    await this.validateRequest(req, instanceId, signature, timestamp);
+
+    this.logger.log(`MT5 connected for instance ${instanceId}, server ${data.serverId}`);
+
+    await this.eventEmitter.handleMT5Connected(
+      instanceId,
+      data.serverId,
+      data.serverName,
+      data.latencyMs,
+    );
+
+    // 记录成功到熔断器
+    this.circuitBreaker.recordSuccess(instanceId);
+
+    return { received: true };
+  }
+
+  /**
+   * MT5 断开事件端点 (mt5-middleware-integration Task 11)
+   */
+  @Post('mt5/disconnected')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '接收 MT5 断开连接事件' })
+  @ApiHeader({ name: 'x-webhook-signature', description: 'Webhook 签名' })
+  @ApiHeader({ name: 'x-webhook-timestamp', description: '时间戳' })
+  @ApiHeader({ name: 'x-instance-id', description: '实例 ID' })
+  async handleMT5Disconnected(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers('x-webhook-signature') signature: string,
+    @Headers('x-webhook-timestamp') timestamp: string,
+    @Headers('x-instance-id') instanceId: string,
+    @Body() data: MT5ConnectionEventDto,
+  ): Promise<{ received: boolean }> {
+    await this.validateRequest(req, instanceId, signature, timestamp);
+
+    this.logger.warn(`MT5 disconnected for instance ${instanceId}, server ${data.serverId}, reason: ${data.reason}`);
+
+    await this.eventEmitter.handleMT5Disconnected(
+      instanceId,
+      data.serverId,
+      data.reason,
+    );
+
+    return { received: true };
+  }
+
+  /**
+   * 健康检查失败事件端点 (mt5-middleware-integration Task 11)
+   */
+  @Post('health/failed')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '接收健康检查失败事件' })
+  @ApiHeader({ name: 'x-webhook-signature', description: 'Webhook 签名' })
+  @ApiHeader({ name: 'x-webhook-timestamp', description: '时间戳' })
+  @ApiHeader({ name: 'x-instance-id', description: '实例 ID' })
+  async handleHealthCheckFailed(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers('x-webhook-signature') signature: string,
+    @Headers('x-webhook-timestamp') timestamp: string,
+    @Headers('x-instance-id') instanceId: string,
+    @Body() data: HealthCheckFailedEventDto,
+  ): Promise<{ received: boolean }> {
+    await this.validateRequest(req, instanceId, signature, timestamp);
+
+    this.logger.warn(
+      `Health check failed for instance ${instanceId}, component ${data.component}: ${data.errorMessage}`,
+    );
+
+    await this.eventEmitter.handleHealthCheckFailed(
+      instanceId,
+      data.component,
+      data.errorMessage,
+      data.consecutiveFailures,
+    );
+
+    return { received: true };
+  }
+
+  /**
    * 验证请求签名
    */
   private async validateRequest(
@@ -291,6 +387,34 @@ export class WebhookController {
           'reconnect',
           event.data.serverId,
           event.data.reason,
+        );
+        break;
+
+      // 中间件特定事件 (mt5-middleware-integration Task 11)
+      case 'mt5.connected':
+        await this.eventEmitter.handleMT5Connected(
+          instanceId,
+          event.data.serverId,
+          event.data.serverName,
+          event.data.latencyMs,
+        );
+        this.circuitBreaker.recordSuccess(instanceId);
+        break;
+
+      case 'mt5.disconnected':
+        await this.eventEmitter.handleMT5Disconnected(
+          instanceId,
+          event.data.serverId,
+          event.data.reason,
+        );
+        break;
+
+      case 'health.check_failed':
+        await this.eventEmitter.handleHealthCheckFailed(
+          instanceId,
+          event.data.component,
+          event.data.errorMessage,
+          event.data.consecutiveFailures,
         );
         break;
 

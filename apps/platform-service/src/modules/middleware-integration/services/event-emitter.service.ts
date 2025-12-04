@@ -207,6 +207,189 @@ export class EventEmitterService {
   }
 
   /**
+   * 处理 MT5 连接事件并更新实例状态 (mt5-middleware-integration Task 11)
+   */
+  async handleMT5Connected(
+    instanceId: string,
+    serverId: string,
+    serverName?: string,
+    latencyMs?: number,
+  ): Promise<void> {
+    this.logger.log(`MT5 connected for instance ${instanceId}, server ${serverId}`);
+
+    // 更新实例状态为 ONLINE
+    await this.updateInstanceStatus(instanceId, 'ONLINE', {
+      serverId,
+      serverName,
+      latencyMs,
+      connectedAt: new Date().toISOString(),
+    });
+
+    // 发送到 EventEmitter
+    this.eventEmitter.emit('instance.mt5.connected', {
+      instanceId,
+      serverId,
+      serverName,
+      latencyMs,
+    });
+
+    // 记录到数据库
+    await this.logEvent({
+      instanceId,
+      eventType: WEBHOOK_EVENTS.MT5_CONNECTED,
+      data: { serverId, serverName, latencyMs, connectedAt: new Date().toISOString() },
+      severity: 'INFO',
+      source: 'webhook',
+    });
+
+    // 发送到 WebSocket
+    this.emitToWebSocket('instance:mt5-connected', {
+      instanceId,
+      serverId,
+      serverName,
+      latencyMs,
+    });
+  }
+
+  /**
+   * 处理 MT5 断开事件并更新实例状态 (mt5-middleware-integration Task 11)
+   */
+  async handleMT5Disconnected(
+    instanceId: string,
+    serverId: string,
+    reason?: string,
+  ): Promise<void> {
+    this.logger.warn(`MT5 disconnected for instance ${instanceId}, server ${serverId}, reason: ${reason}`);
+
+    // 更新实例状态为 OFFLINE
+    await this.updateInstanceStatus(instanceId, 'OFFLINE', {
+      serverId,
+      reason,
+      disconnectedAt: new Date().toISOString(),
+    });
+
+    // 发送到 EventEmitter
+    this.eventEmitter.emit('instance.mt5.disconnected', {
+      instanceId,
+      serverId,
+      reason,
+    });
+
+    // 记录到数据库
+    await this.logEvent({
+      instanceId,
+      eventType: WEBHOOK_EVENTS.MT5_DISCONNECTED,
+      data: { serverId, reason, disconnectedAt: new Date().toISOString() },
+      severity: 'WARNING',
+      source: 'webhook',
+    });
+
+    // 发送告警到 WebSocket
+    this.emitToWebSocket('instance:mt5-disconnected', {
+      instanceId,
+      serverId,
+      reason,
+      alert: true,
+    });
+  }
+
+  /**
+   * 处理健康检查失败事件 (mt5-middleware-integration Task 11)
+   */
+  async handleHealthCheckFailed(
+    instanceId: string,
+    component: string,
+    errorMessage: string,
+    consecutiveFailures?: number,
+  ): Promise<void> {
+    this.logger.warn(
+      `Health check failed for instance ${instanceId}, component ${component}: ${errorMessage}`,
+    );
+
+    // 确定严重级别
+    const severity = (consecutiveFailures ?? 0) >= 5 ? 'CRITICAL' : 'WARNING';
+
+    // 如果连续失败次数达到阈值，更新实例状态为 DEGRADED 或 ERROR
+    if ((consecutiveFailures ?? 0) >= 3) {
+      const newStatus = (consecutiveFailures ?? 0) >= 5 ? 'ERROR' : 'DEGRADED';
+      await this.updateInstanceStatus(instanceId, newStatus, {
+        component,
+        errorMessage,
+        consecutiveFailures,
+      });
+    }
+
+    // 发送到 EventEmitter
+    this.eventEmitter.emit('instance.health.failed', {
+      instanceId,
+      component,
+      errorMessage,
+      consecutiveFailures,
+      severity,
+    });
+
+    // 记录到数据库
+    await this.logEvent({
+      instanceId,
+      eventType: WEBHOOK_EVENTS.HEALTH_CHECK_FAILED,
+      data: {
+        component,
+        errorMessage,
+        consecutiveFailures,
+        failedAt: new Date().toISOString(),
+      },
+      severity: severity as any,
+      source: 'webhook',
+    });
+
+    // 发送告警到 WebSocket
+    this.emitToWebSocket('instance:health-failed', {
+      instanceId,
+      component,
+      errorMessage,
+      consecutiveFailures,
+      severity,
+      alert: true,
+    });
+  }
+
+  /**
+   * 更新实例状态 (mt5-middleware-integration Task 11)
+   */
+  private async updateInstanceStatus(
+    instanceId: string,
+    status: InstanceStatus,
+    healthData?: Record<string, any>,
+  ): Promise<void> {
+    try {
+      const updateData: any = {
+        status,
+        lastHealthCheck: new Date(),
+        lastCheckedAt: new Date(),
+      };
+
+      if (healthData) {
+        updateData.healthData = healthData;
+      }
+
+      // 如果状态恢复为 ONLINE，重置连续失败次数
+      if (status === 'ONLINE') {
+        updateData.consecutiveFailures = 0;
+        updateData.errorMessage = null;
+      }
+
+      await this.prisma.middlewareInstance.update({
+        where: { id: instanceId },
+        data: updateData,
+      });
+
+      this.logger.log(`Instance ${instanceId} status updated to ${status}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to update instance status: ${error.message}`, error.stack);
+    }
+  }
+
+  /**
    * 发送错误事件
    */
   async emitError(

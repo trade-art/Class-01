@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
 
 /**
  * 登录请求 DTO
@@ -20,6 +20,21 @@ export class LoginDto {
   @IsString()
   @MinLength(6, { message: '密码长度至少为 6 位' })
   password: string;
+
+  @ApiPropertyOptional({
+    description: '租户代码 (白标域名登录时可选，系统会自动从域名识别)',
+    example: 'DEMO',
+  })
+  @IsOptional()
+  @IsString()
+  tenantCode?: string;
+
+  @ApiPropertyOptional({
+    description: '记住登录状态',
+    example: false,
+  })
+  @IsOptional()
+  rememberMe?: boolean;
 }
 
 /**
