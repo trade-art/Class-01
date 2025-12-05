@@ -10,9 +10,15 @@ export interface UserListParams extends PaginationParams {
   sortOrder?: 'asc' | 'desc'
 }
 
+// 转换前端分页参数为后端格式 (pageSize -> limit)
+function convertPaginationParams<T extends Partial<PaginationParams>>(params: T): Omit<T, 'pageSize'> & { limit?: number } {
+  const { pageSize, ...rest } = params as any
+  return pageSize !== undefined ? { ...rest, limit: pageSize } : rest
+}
+
 export const usersApi = {
   getList(params: Partial<UserListParams>): Promise<PaginatedResponse<TradingUser>> {
-    return get<PaginatedResponse<TradingUser>>('/tenant/users', params)
+    return get<PaginatedResponse<TradingUser>>('/tenant/users', convertPaginationParams(params))
   },
 
   getUser(login: number | string): Promise<TradingUser> {
@@ -40,11 +46,11 @@ export const usersApi = {
   },
 
   getTransactions(login: number | string, params?: Partial<PaginationParams>): Promise<PaginatedResponse<any>> {
-    return get(`/tenant/users/${login}/transactions`, params || { page: 1, pageSize: 50 })
+    return get(`/tenant/users/${login}/transactions`, convertPaginationParams(params || { page: 1, pageSize: 50 }))
   },
 
   getLogs(login: number | string, params?: Partial<PaginationParams>): Promise<PaginatedResponse<any>> {
-    return get(`/tenant/users/${login}/logs`, params || { page: 1, pageSize: 50 })
+    return get(`/tenant/users/${login}/logs`, convertPaginationParams(params || { page: 1, pageSize: 50 }))
   },
 
   exportCsv(params: Omit<UserListParams, 'page' | 'pageSize'>): Promise<Blob> {
@@ -54,7 +60,7 @@ export const usersApi = {
   },
 
   getUserDeposits(login: number | string, params?: Partial<PaginationParams>): Promise<PaginatedResponse<any>> {
-    return get(`/tenant/users/${login}/deposits`, params || { page: 1, pageSize: 50 })
+    return get(`/tenant/users/${login}/deposits`, convertPaginationParams(params || { page: 1, pageSize: 50 }))
   },
 
   resetPassword(login: number | string): Promise<void> {

@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { MtServerService } from '../middleware-proxy/services/mt-server.service';
 import { TenantRole } from '@prisma/client';
 
 // Mock bcrypt
@@ -41,6 +42,15 @@ describe('AuthService', () => {
     }),
   };
 
+  const mockMtServerService = {
+    getDefaultServer: jest.fn().mockResolvedValue({
+      serverId: 'default-server',
+      platformType: 'MT5',
+      isDefault: true,
+    }),
+    getServers: jest.fn().mockResolvedValue({ total: 0, servers: [] }),
+  };
+
   const mockAdmin = {
     id: 'admin-1',
     email: 'admin@test.com',
@@ -65,6 +75,7 @@ describe('AuthService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: MtServerService, useValue: mockMtServerService },
       ],
     }).compile();
 

@@ -14,15 +14,15 @@ datasource db {
 // Platform Admin (Super Admin)
 // ============================================
 model PlatformAdmin {
-  id        String   @id @default(uuid())
-  email     String   @unique
+  id        String       @id @default(uuid())
+  email     String       @unique
   password  String
   name      String
   role      PlatformRole @default(ADMIN)
-  isActive  Boolean  @default(true)
+  isActive  Boolean      @default(true)
   lastLogin DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
   @@map("platform_admins")
 }
@@ -37,54 +37,65 @@ enum PlatformRole {
 // Tenant (B2B Customer)
 // ============================================
 model Tenant {
-  id          String   @id @default(uuid())
-  name        String
-  code        String   @unique  // Unique tenant code for identification
-  email       String
-  phone       String?
-  company     String?
+  id      String  @id @default(uuid())
+  name    String
+  code    String  @unique // Unique tenant code for identification
+  email   String
+  phone   String?
+  company String?
 
   // White-label branding (REQ-3)
-  logo         String?  // Logo URL
-  displayName  String?  // Custom display name for tenant's console
-  primaryColor String?  // Primary theme color (hex format: #XXXXXX)
-  customDomain String?  @unique // Custom domain for white-label (e.g., trading.client.com)
-  favicon      String?  // Favicon URL
+  logo         String? // Logo URL
+  displayName  String? // Custom display name for tenant's console
+  primaryColor String? // Primary theme color (hex format: #XXXXXX)
+  customDomain String? @unique // Custom domain for white-label (e.g., trading.client.com)
+  favicon      String? // Favicon URL
 
-  status      TenantStatus @default(PENDING)
+  status TenantStatus @default(PENDING)
+
+  // Multi-tenant deployment mode (SaaS architecture)
+  deploymentMode DeploymentMode @default(SHARED) @map("deployment_mode")
 
   // Subscription info
-  plan        SubscriptionPlan @default(BASIC)
-  maxInstances Int @default(1)
-  maxAdmins   Int @default(3)
+  plan         SubscriptionPlan @default(BASIC)
+  maxInstances Int              @default(1)
+  maxAdmins    Int              @default(3)
 
   // Billing
   billingEmail String?
   billingCycle BillingCycle @default(MONTHLY)
 
   // Metadata
-  settings    Json?
-  notes       String?
+  settings Json?
+  notes    String?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  expiresAt   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  expiresAt DateTime?
 
   // Relations
-  admins      TenantAdmin[]
-  instances   MiddlewareInstance[]
-  invoices    Invoice[]
-  apiKeys     ApiKey[]
+  admins    TenantAdmin[]
+  instances MiddlewareInstance[]
+  invoices  Invoice[]
+  apiKeys   ApiKey[]
+  mtServers MtServer[]
+  domains   TenantDomain[]
 
   @@map("tenants")
 }
 
+// Deployment mode for multi-tenant architecture
+enum DeploymentMode {
+  SHARED // Small tenants share middleware instances
+  DEDICATED // Large tenants have dedicated middleware instances
+}
+
 enum TenantStatus {
-  PENDING     // Awaiting approval
-  ACTIVE      // Active and operational
-  SUSPENDED   // Temporarily suspended
-  EXPIRED     // Subscription expired
-  CANCELLED   // Cancelled by tenant or admin
+  PENDING // Awaiting approval
+  ACTIVE // Active and operational
+  SUSPENDED // Temporarily suspended
+  EXPIRED // Subscription expired
+  CANCELLED // Cancelled by tenant or admin
 }
 
 enum SubscriptionPlan {
@@ -104,74 +115,74 @@ enum BillingCycle {
 // Tenant Admin (B2B Customer's Admin)
 // ============================================
 model TenantAdmin {
-  id        String   @id @default(uuid())
+  id        String     @id @default(uuid())
   tenantId  String
   email     String
   password  String
   name      String
   role      TenantRole @default(ADMIN)
-  isActive  Boolean  @default(true)
+  isActive  Boolean    @default(true)
   lastLogin DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, email])
   @@map("tenant_admins")
 }
 
 enum TenantRole {
-  OWNER       // Full access, can manage billing
-  ADMIN       // Can manage instances and traders
-  OPERATOR    // Read-only access
+  OWNER // Full access, can manage billing
+  ADMIN // Can manage instances and traders
+  OPERATOR // Read-only access
 }
 
 // ============================================
 // Middleware Instance
 // ============================================
 model MiddlewareInstance {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   tenantId    String
   name        String
   description String?
 
   // Connection info
-  host        String
-  port        Int      @default(8080)
-  apiKey      String   // API key for this instance (encrypted)
-  useTls      Boolean  @default(false) // Use HTTPS for middleware communication
+  host   String
+  port   Int     @default(8080)
+  apiKey String // API key for this instance (encrypted)
+  useTls Boolean @default(false) // Use HTTPS for middleware communication
 
   // MT5 Server info
-  mt5Servers  Json?    // Array of MT5 server configurations
+  mt5Servers Json? // Array of MT5 server configurations
 
   // Status
-  status      InstanceStatus @default(OFFLINE)
+  status          InstanceStatus @default(OFFLINE)
   lastHealthCheck DateTime?
-  lastCheckedAt   DateTime?  @map("last_checked_at")  // Last health check timestamp
-  healthData  Json?    // Latest health check data
+  lastCheckedAt   DateTime?      @map("last_checked_at") // Last health check timestamp
+  healthData      Json? // Latest health check data
 
   // Enhanced fields for middleware-integration (Task 5)
-  instanceIdentifier   String?  @map("instance_identifier")  // Middleware's configured instance_id
-  webhookSecret        String?  @map("webhook_secret")       // Secret for webhook signature verification
-  latencyMs            Int?     @map("latency_ms")           // Last health check latency
-  errorMessage         String?  @map("error_message")        // Last error message
-  circuitBreakerState  CircuitBreakerState @default(CLOSED) @map("circuit_breaker_state")
-  consecutiveFailures  Int      @default(0) @map("consecutive_failures") // Health check failure count
+  instanceIdentifier  String?             @map("instance_identifier") // Middleware's configured instance_id
+  webhookSecret       String?             @map("webhook_secret") // Secret for webhook signature verification
+  latencyMs           Int?                @map("latency_ms") // Last health check latency
+  errorMessage        String?             @map("error_message") // Last error message
+  circuitBreakerState CircuitBreakerState @default(CLOSED) @map("circuit_breaker_state")
+  consecutiveFailures Int                 @default(0) @map("consecutive_failures") // Health check failure count
 
   // Limits
-  maxSessions Int      @default(100)
-  maxManagers Int      @default(10)
+  maxSessions Int @default(100)
+  maxManagers Int @default(10)
 
   // Metadata
-  version     String?
-  settings    Json?
+  version  String?
+  settings Json?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  events      InstanceEvent[]
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  events InstanceEvent[]
 
   @@map("middleware_instances")
 }
@@ -194,15 +205,15 @@ enum InstanceStatus {
 // Instance Event Log (middleware-integration Task 5)
 // ============================================
 model InstanceEvent {
-  id          String   @id @default(uuid())
-  instanceId  String   @map("instance_id")
-  eventType   String   @map("event_type")  // status_change, circuit_breaker, mt5_disconnect, etc.
-  eventData   Json     @map("event_data")
-  severity    EventSeverity @default(INFO)
-  source      String   @default("platform") // platform, middleware, webhook
-  createdAt   DateTime @default(now()) @map("created_at")
+  id         String        @id @default(uuid())
+  instanceId String        @map("instance_id")
+  eventType  String        @map("event_type") // status_change, circuit_breaker, mt5_disconnect, etc.
+  eventData  Json          @map("event_data")
+  severity   EventSeverity @default(INFO)
+  source     String        @default("platform") // platform, middleware, webhook
+  createdAt  DateTime      @default(now()) @map("created_at")
 
-  instance    MiddlewareInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  instance MiddlewareInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
 
   @@index([instanceId, createdAt])
   @@index([eventType, createdAt])
@@ -220,31 +231,31 @@ enum EventSeverity {
 // Invoice & Billing
 // ============================================
 model Invoice {
-  id          String   @id @default(uuid())
-  tenantId    String
-  invoiceNo   String   @unique
+  id        String @id @default(uuid())
+  tenantId  String
+  invoiceNo String @unique
 
   // Amount
-  amount      Decimal  @db.Decimal(10, 2)
-  currency    String   @default("USD")
+  amount   Decimal @db.Decimal(10, 2)
+  currency String  @default("USD")
 
   // Period
   periodStart DateTime
   periodEnd   DateTime
 
   // Status
-  status      InvoiceStatus @default(PENDING)
-  paidAt      DateTime?
+  status InvoiceStatus @default(PENDING)
+  paidAt DateTime?
 
   // Details
-  items       Json?    // Line items
-  notes       String?
+  items Json? // Line items
+  notes String?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  dueDate     DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  dueDate   DateTime
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("invoices")
 }
@@ -261,27 +272,27 @@ enum InvoiceStatus {
 // API Keys for Tenant
 // ============================================
 model ApiKey {
-  id          String   @id @default(uuid())
-  tenantId    String
-  name        String
-  key         String   @unique
-  hashedKey   String   // Hashed version for storage
+  id        String @id @default(uuid())
+  tenantId  String
+  name      String
+  key       String @unique
+  hashedKey String // Hashed version for storage
 
   // Permissions
-  permissions Json?    // Array of allowed permissions
+  permissions Json? // Array of allowed permissions
 
   // Limits
-  rateLimit   Int      @default(1000)  // Requests per minute
+  rateLimit Int @default(1000) // Requests per minute
 
   // Status
-  isActive    Boolean  @default(true)
-  lastUsedAt  DateTime?
-  expiresAt   DateTime?
+  isActive   Boolean   @default(true)
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("api_keys")
 }
@@ -290,13 +301,13 @@ model ApiKey {
 // System Settings
 // ============================================
 model SystemSetting {
-  id        String   @id @default(uuid())
-  key       String   @unique
-  value     Json
-  category  String   @default("general")
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Json
+  category    String   @default("general")
   description String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("system_settings")
 }
@@ -319,10 +330,10 @@ model RiskAlert {
 }
 
 enum RiskAlertType {
-  LARGE_TRADE       // 大额交易
-  LOW_MARGIN        // 低保证金
-  HIGH_FREQUENCY    // 高频交易
-  ABNORMAL_PROFIT   // 异常盈利
+  LARGE_TRADE // 大额交易
+  LOW_MARGIN // 低保证金
+  HIGH_FREQUENCY // 高频交易
+  ABNORMAL_PROFIT // 异常盈利
 }
 
 enum RiskAlertLevel {
@@ -375,4 +386,62 @@ model NotificationSetting {
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("notification_settings")
+}
+
+// ============================================
+// MT Server Configuration (Multi-Platform Support)
+// ============================================
+model MtServer {
+  id           String       @id @default(uuid())
+  tenantId     String       @map("tenant_id")
+  serverId     String       @map("server_id") // Unique identifier within tenant
+  displayName  String?      @map("display_name") // Friendly name for UI
+  platformType PlatformType @default(MT5) @map("platform_type")
+
+  // Middleware Connection
+  middlewareUrl String @map("middleware_url") // e.g., http://localhost:8080
+
+  // MT Server Connection (used by middleware)
+  serverAddress            String @map("server_address") // MT server address:port
+  managerLogin             BigInt @map("manager_login")
+  managerPasswordEncrypted String @map("manager_password_encrypted")
+
+  // Status
+  isActive  Boolean @default(true) @map("is_active")
+  isDefault Boolean @default(false) @map("is_default") // Default server for tenant
+
+  // Metadata
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, serverId])
+  @@index([tenantId, isActive])
+  @@map("mt_servers")
+}
+
+enum PlatformType {
+  MT5
+  MT4
+}
+
+// ============================================
+// Tenant Domain (White-Label Domain Mapping)
+// ============================================
+model TenantDomain {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  domain     String    @unique // e.g., trading.client.com
+  isPrimary  Boolean   @default(false) @map("is_primary")
+  sslEnabled Boolean   @default(true) @map("ssl_enabled")
+  verifiedAt DateTime? @map("verified_at") // Domain verification timestamp
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("tenant_domains")
 }

@@ -12,8 +12,12 @@ export interface JwtPayload {
   role: 'owner' | 'admin' | 'operator';
   /** 租户 ID */
   tenantId: string;
-  /** 实例 ID */
+  /** 实例 ID (兼容旧版) */
   instanceId: string;
+  /** 默认 MT 服务器 ID (多租户新版) */
+  serverId?: string;
+  /** 平台类型 (MT5/MT4) */
+  platformType?: 'MT5' | 'MT4';
   /** Token 签发时间 */
   iat?: number;
   /** Token 过期时间 */

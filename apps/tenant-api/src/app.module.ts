@@ -4,6 +4,7 @@ import { AuthModule } from './auth';
 import { CommonModule } from './common';
 import { configuration, validationSchema, validationOptions } from './config';
 import { DashboardModule } from './dashboard';
+import { HealthModule } from './health';
 import { HistoryModule } from './history';
 import { MiddlewareProxyModule } from './middleware-proxy';
 import { PositionsModule } from './positions';
@@ -12,6 +13,8 @@ import { QuotesModule } from './quotes';
 import { ReportsModule } from './reports';
 import { RiskModule } from './risk';
 import { SettingsModule } from './settings';
+import { TenantModule } from './tenant';
+import { TradingModule } from './trading';
 import { UsersModule } from './users';
 import { WebsocketModule } from './websocket';
 
@@ -62,8 +65,17 @@ import { WebsocketModule } from './websocket';
     // 设置模块
     SettingsModule,
 
+    // 租户识别模块
+    TenantModule,
+
+    // 统一交易 API 模块
+    TradingModule,
+
     // WebSocket 实时通信模块
     WebsocketModule,
+
+    // 健康监控模块
+    HealthModule,
   ],
 })
 export class AppModule {}

@@ -66,6 +66,32 @@ async function main() {
 
   console.log('✅ Created tenant admin:', tenantAdmin.email);
 
+  // Create MT Server for demo tenant
+  // Note: In production, password should be encrypted with proper encryption
+  const demoMtServer = await prisma.mtServer.upsert({
+    where: {
+      tenantId_serverId: {
+        tenantId: demoTenant.id,
+        serverId: 'demo-mt5-server',
+      },
+    },
+    update: {},
+    create: {
+      tenantId: demoTenant.id,
+      serverId: 'demo-mt5-server',
+      displayName: 'Demo MT5 Server',
+      platformType: 'MT5',
+      middlewareUrl: 'http://localhost:8080',
+      serverAddress: 'demo.mt5server.com:443',
+      managerLogin: BigInt(1000),
+      managerPasswordEncrypted: 'encrypted_password_placeholder', // Should be encrypted in production
+      isActive: true,
+      isDefault: true,
+    },
+  });
+
+  console.log('✅ Created MT server:', demoMtServer.displayName);
+
   // Create system settings
   const settings = [
     {

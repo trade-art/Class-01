@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { BusinessException, ErrorCodes } from '../common';
 import { JwtPayload } from './decorators/current-user.decorator';
+import { MtServerService } from '../middleware-proxy/services/mt-server.service';
 import {
   LoginDto,
   ChangePasswordDto,
@@ -25,6 +26,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly mtServerService: MtServerService,
   ) {}
 
   /**
@@ -140,7 +142,7 @@ export class AuthService {
       );
     }
 
-    // 获取默认实例 ID
+    // 获取默认实例 ID (兼容旧版)
     const instances = await this.prisma.middlewareInstance.findMany({
       where: {
         tenantId: matchedAdmin.tenantId,
@@ -151,6 +153,9 @@ export class AuthService {
     });
     const instanceId = instances[0]?.id || '';
 
+    // 获取默认 MT 服务器 (新版多租户)
+    const defaultServer = await this.mtServerService.getDefaultServer(matchedAdmin.tenantId);
+
     // 生成 Token - 转换角色为小写
     const tokens = await this.generateTokensOnly({
       sub: matchedAdmin.id,
@@ -158,6 +163,8 @@ export class AuthService {
       role: matchedAdmin.role.toLowerCase() as 'owner' | 'admin' | 'operator',
       tenantId: matchedAdmin.tenantId,
       instanceId,
+      serverId: defaultServer?.serverId,
+      platformType: defaultServer?.platformType as 'MT5' | 'MT4' | undefined,
     });
 
     // 更新登录信息
@@ -221,7 +228,7 @@ export class AuthService {
         );
       }
 
-      // 获取默认实例
+      // 获取默认实例 (兼容旧版)
       const instances = await this.prisma.middlewareInstance.findMany({
         where: {
           tenantId: admin.tenantId,
@@ -232,6 +239,9 @@ export class AuthService {
       });
       const instanceId = instances[0]?.id || '';
 
+      // 获取默认 MT 服务器 (新版多租户)
+      const defaultServer = await this.mtServerService.getDefaultServer(admin.tenantId);
+
       // 生成新的 Token
       const tokens = await this.generateTokensOnly({
         sub: admin.id,
@@ -239,6 +249,8 @@ export class AuthService {
         role: admin.role.toLowerCase() as 'owner' | 'admin' | 'operator',
         tenantId: admin.tenantId,
         instanceId,
+        serverId: defaultServer?.serverId,
+        platformType: defaultServer?.platformType as 'MT5' | 'MT4' | undefined,
       });
       return {
         accessToken: tokens.accessToken,

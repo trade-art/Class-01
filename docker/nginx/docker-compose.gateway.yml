@@ -1,0 +1,150 @@
+# MT5 Platform API Gateway - Multi-Tenant Deployment
+# Usage: docker-compose -f docker-compose.gateway.yml up -d
+
+version: '3.8'
+
+services:
+  # ============================================
+  # API Gateway (Nginx)
+  # Routes traffic based on tenant deployment mode
+  # ============================================
+  gateway:
+    image: nginx:alpine
+    container_name: mt5-gateway
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro  # Mount SSL certificates
+      - gateway_logs:/var/log/nginx
+    depends_on:
+      - tenant-api
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/nginx-health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mt5-network
+
+  # ============================================
+  # Tenant API (Backend)
+  # Handles all business logic and tenant routing
+  # ============================================
+  tenant-api:
+    image: mt5-tenant-api:latest
+    container_name: mt5-tenant-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      MIDDLEWARE_PASSWORD_KEY: ${MIDDLEWARE_PASSWORD_KEY}
+    expose:
+      - "3002"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3002/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mt5-network
+
+  # ============================================
+  # Shared Middleware Instances
+  # For SHARED deployment mode tenants
+  # ============================================
+  middleware-shared-1:
+    image: mt5-middleware:latest
+    container_name: mt5-middleware-shared-1
+    restart: unless-stopped
+    environment:
+      - MIDDLEWARE_PORT=8080
+      - MIDDLEWARE_MODE=shared
+      - LOG_LEVEL=info
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mt5-network
+
+  middleware-shared-2:
+    image: mt5-middleware:latest
+    container_name: mt5-middleware-shared-2
+    restart: unless-stopped
+    environment:
+      - MIDDLEWARE_PORT=8080
+      - MIDDLEWARE_MODE=shared
+      - LOG_LEVEL=info
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mt5-network
+
+  # ============================================
+  # Dedicated Middleware Instances (Examples)
+  # For DEDICATED deployment mode tenants
+  # Uncomment and configure as needed
+  # ============================================
+  # middleware-acme:
+  #   image: mt5-middleware:latest
+  #   container_name: mt5-middleware-acme
+  #   restart: unless-stopped
+  #   environment:
+  #     - MIDDLEWARE_PORT=8080
+  #     - MIDDLEWARE_MODE=dedicated
+  #     - TENANT_CODE=acme
+  #     - LOG_LEVEL=info
+  #   expose:
+  #     - "8080"
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   networks:
+  #     - mt5-network
+
+  # middleware-enterprise:
+  #   image: mt5-middleware:latest
+  #   container_name: mt5-middleware-enterprise
+  #   restart: unless-stopped
+  #   environment:
+  #     - MIDDLEWARE_PORT=8080
+  #     - MIDDLEWARE_MODE=dedicated
+  #     - TENANT_CODE=enterprise
+  #     - LOG_LEVEL=info
+  #   expose:
+  #     - "8080"
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   networks:
+  #     - mt5-network
+
+volumes:
+  gateway_logs:
+
+networks:
+  mt5-network:
+    driver: bridge
