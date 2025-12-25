@@ -44,6 +44,15 @@ export class AdminInfoDto {
 
   @ApiProperty({ description: '角色', enum: ['owner', 'admin', 'operator'] })
   role: string;
+
+  @ApiPropertyOptional({ description: '最后登录时间' })
+  lastLoginAt?: string;
+
+  @ApiPropertyOptional({ description: '最后登录 IP' })
+  lastLoginIp?: string;
+
+  @ApiProperty({ description: '账户创建时间' })
+  createdAt: string;
 }
 
 /**
@@ -110,11 +119,17 @@ export class CurrentUserDto {
   @ApiProperty({ description: '实例 ID' })
   instanceId: string;
 
-  @ApiProperty({ description: '头像 URL', required: false })
+  @ApiPropertyOptional({ description: '头像 URL' })
   avatar?: string;
 
-  @ApiProperty({ description: '最后登录时间' })
+  @ApiPropertyOptional({ description: '最后登录时间' })
   lastLoginAt?: string;
+
+  @ApiPropertyOptional({ description: '最后登录 IP' })
+  lastLoginIp?: string;
+
+  @ApiProperty({ description: '账户创建时间' })
+  createdAt: string;
 }
 
 /**

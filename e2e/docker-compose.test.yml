@@ -1,0 +1,149 @@
+version: '3.8'
+
+# E2E Testing Environment Docker Compose
+# This configuration provides an isolated test environment for E2E tests
+
+services:
+  # Test Database
+  test-db:
+    image: postgres:15-alpine
+    container_name: mt5-test-db
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: testpassword123
+      POSTGRES_DB: mt5_test
+    ports:
+      - "5433:5432"
+    volumes:
+      - test-db-data:/var/lib/postgresql/data
+      - ./init-test-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d mt5_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  # Test Redis
+  test-redis:
+    image: redis:7-alpine
+    container_name: mt5-test-redis
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - test-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test-network
+
+  # Mock MT5 Middleware Service
+  mock-middleware:
+    build:
+      context: ./mocks
+      dockerfile: Dockerfile.mock-middleware
+    container_name: mt5-mock-middleware
+    ports:
+      - "8080:8080"
+    environment:
+      MOCK_DELAY_MS: 50
+      MOCK_ERROR_RATE: 0
+      LOG_LEVEL: debug
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - test-network
+
+  # Tenant API for testing
+  tenant-api-test:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.tenant-api
+      target: production
+    container_name: mt5-tenant-api-test
+    ports:
+      - "3001:3000"
+    environment:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://test:testpassword123@test-db:5432/mt5_test
+      REDIS_URL: redis://test-redis:6379
+      JWT_SECRET: test-jwt-secret-e2e-testing-only
+      JWT_EXPIRES_IN: 1h
+      MIDDLEWARE_URL: http://mock-middleware:8080
+      LOG_LEVEL: debug
+      CORS_ORIGINS: http://localhost:5174,http://tenant-console-test:80
+    depends_on:
+      test-db:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+      mock-middleware:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  # Tenant Console for testing
+  tenant-console-test:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.tenant-console
+      target: production
+    container_name: mt5-tenant-console-test
+    ports:
+      - "5174:80"
+    environment:
+      VITE_API_BASE_URL: http://localhost:3001
+    depends_on:
+      tenant-api-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - test-network
+
+  # Playwright test runner
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.40.0-jammy
+    container_name: mt5-playwright
+    working_dir: /app
+    volumes:
+      - ../:/app
+      - playwright-cache:/root/.cache
+    environment:
+      API_BASE_URL: http://tenant-api-test:3000
+      APP_URL: http://tenant-console-test:80
+      DATABASE_URL: postgresql://test:testpassword123@test-db:5432/mt5_test
+      CI: "true"
+    depends_on:
+      tenant-api-test:
+        condition: service_healthy
+      tenant-console-test:
+        condition: service_healthy
+    command: npx playwright test --reporter=html
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge
+
+volumes:
+  test-db-data:
+  test-redis-data:
+  playwright-cache:

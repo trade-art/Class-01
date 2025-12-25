@@ -1,0 +1,108 @@
+{{ define "email.default.subject" }}
+[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonAnnotations.summary }}
+{{ end }}
+
+{{ define "email.default.html" }}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .header { padding: 20px; color: white; }
+    .header.firing { background-color: #e74c3c; }
+    .header.resolved { background-color: #27ae60; }
+    .content { padding: 20px; }
+    .alert { border: 1px solid #ddd; border-radius: 4px; margin-bottom: 15px; overflow: hidden; }
+    .alert-header { padding: 10px 15px; background: #f8f9fa; border-bottom: 1px solid #ddd; font-weight: bold; }
+    .alert-body { padding: 15px; }
+    .label { display: inline-block; padding: 2px 8px; background: #e9ecef; border-radius: 3px; margin: 2px; font-size: 12px; }
+    .severity-critical { background: #e74c3c; color: white; }
+    .severity-warning { background: #f39c12; color: white; }
+    .severity-info { background: #3498db; color: white; }
+    .footer { padding: 15px 20px; background: #f8f9fa; border-top: 1px solid #ddd; font-size: 12px; color: #666; }
+    table { width: 100%; border-collapse: collapse; }
+    td { padding: 5px 0; }
+    td.label-key { font-weight: bold; width: 120px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header {{ .Status }}">
+      <h2 style="margin: 0;">{{ if eq .Status "firing" }}🔥 告警触发{{ else }}✅ 告警恢复{{ end }}</h2>
+      <p style="margin: 10px 0 0 0; opacity: 0.9;">{{ .CommonAnnotations.summary }}</p>
+    </div>
+
+    <div class="content">
+      {{ if gt (len .Alerts.Firing) 0 }}
+      <h3>触发中的告警 ({{ .Alerts.Firing | len }})</h3>
+      {{ range .Alerts.Firing }}
+      <div class="alert">
+        <div class="alert-header">
+          <span class="label severity-{{ .Labels.severity }}">{{ .Labels.severity | toUpper }}</span>
+          {{ .Labels.alertname }}
+        </div>
+        <div class="alert-body">
+          <p><strong>描述:</strong> {{ .Annotations.description }}</p>
+          <table>
+            <tr><td class="label-key">集群:</td><td>{{ .Labels.cluster }}</td></tr>
+            <tr><td class="label-key">服务:</td><td>{{ .Labels.service }}</td></tr>
+            <tr><td class="label-key">实例:</td><td>{{ .Labels.instance }}</td></tr>
+            <tr><td class="label-key">开始时间:</td><td>{{ .StartsAt.Format "2006-01-02 15:04:05" }}</td></tr>
+          </table>
+          <p><strong>标签:</strong><br>
+          {{ range .Labels.SortedPairs }}
+            <span class="label">{{ .Name }}: {{ .Value }}</span>
+          {{ end }}
+          </p>
+        </div>
+      </div>
+      {{ end }}
+      {{ end }}
+
+      {{ if gt (len .Alerts.Resolved) 0 }}
+      <h3>已恢复的告警 ({{ .Alerts.Resolved | len }})</h3>
+      {{ range .Alerts.Resolved }}
+      <div class="alert">
+        <div class="alert-header">
+          <span class="label" style="background: #27ae60; color: white;">已恢复</span>
+          {{ .Labels.alertname }}
+        </div>
+        <div class="alert-body">
+          <table>
+            <tr><td class="label-key">服务:</td><td>{{ .Labels.service }}</td></tr>
+            <tr><td class="label-key">实例:</td><td>{{ .Labels.instance }}</td></tr>
+            <tr><td class="label-key">开始时间:</td><td>{{ .StartsAt.Format "2006-01-02 15:04:05" }}</td></tr>
+            <tr><td class="label-key">恢复时间:</td><td>{{ .EndsAt.Format "2006-01-02 15:04:05" }}</td></tr>
+          </table>
+        </div>
+      </div>
+      {{ end }}
+      {{ end }}
+    </div>
+
+    <div class="footer">
+      <p>此邮件由 MT5 Platform 告警系统自动发送</p>
+      <p>查看更多详情: <a href="{{ .ExternalURL }}">Alertmanager</a></p>
+    </div>
+  </div>
+</body>
+</html>
+{{ end }}
+
+{{ define "slack.default.title" }}
+{{ if eq .Status "firing" }}🔥{{ else }}✅{{ end }} [{{ .Status | toUpper }}] {{ .CommonAnnotations.summary }}
+{{ end }}
+
+{{ define "slack.default.text" }}
+{{ range .Alerts }}
+*告警名称:* {{ .Labels.alertname }}
+*严重级别:* {{ .Labels.severity }}
+*服务:* {{ .Labels.service }}
+*描述:* {{ .Annotations.description }}
+*开始时间:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+{{ if .EndsAt }}*恢复时间:* {{ .EndsAt.Format "2006-01-02 15:04:05" }}{{ end }}
+---
+{{ end }}
+{{ end }}

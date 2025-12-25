@@ -12,6 +12,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { firstValueFrom, catchError, timeout } from 'rxjs';
 import { AxiosError, AxiosResponse } from 'axios';
 import { BusinessException, ErrorCodes } from '../../common/exceptions';
+import { MiddlewareClientService } from '../middleware-integration/services/middleware-client.service';
+
+/**
+ * 经理账号连接状态
+ */
+export type ManagerStatus = 'CONNECTED' | 'DISCONNECTED' | 'NOT_CONFIGURED';
 
 @Injectable()
 export class InstancesService {
@@ -20,7 +26,131 @@ export class InstancesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly httpService: HttpService,
+    private readonly middlewareClient: MiddlewareClientService,
   ) {}
+
+  /**
+   * 获取租户的经理账号配置状态
+   */
+  private async getManagerConfigStatus(tenantId: string): Promise<{ hasActiveManager: boolean }> {
+    const activeManager = await this.prisma.mtManager.findFirst({
+      where: { tenantId, isActive: true },
+      select: { id: true },
+    });
+
+    return { hasActiveManager: !!activeManager };
+  }
+
+  /**
+   * 判断经理账号连接状态（真实认证测试）
+   * - NOT_CONFIGURED: 未配置活跃的经理账号
+   * - CONNECTED: 有经理账号且 MT5 API 认证成功
+   * - DISCONNECTED: 有经理账号但 MT5 API 认证失败或中间件离线
+   */
+  private async determineManagerStatus(
+    hasActiveManager: boolean,
+    middlewareStatus: string,
+    instance: MiddlewareInstance,
+    tenantId: string,
+  ): Promise<ManagerStatus> {
+    if (!hasActiveManager) {
+      return 'NOT_CONFIGURED';
+    }
+
+    if (middlewareStatus !== 'ONLINE') {
+      return 'DISCONNECTED';
+    }
+
+    // 中间件在线时，测试真实的 MT5 API 认证状态
+    try {
+      const middlewareUrl = `http://${instance.host}:${instance.port}`;
+      const isAuthenticated = await this.testInstanceAuthentication(
+        middlewareUrl,
+        tenantId,
+      );
+      return isAuthenticated ? 'CONNECTED' : 'DISCONNECTED';
+    } catch (error) {
+      this.logger.warn(
+        `测试实例 ${instance.id} 认证状态失败: ${error.message}`,
+      );
+      return 'DISCONNECTED';
+    }
+  }
+
+  /**
+   * 测试租户在实例上的 MT5 API 认证
+   * 获取租户的 MT 服务器配置和经理账号，调用中间件进行真实认证测试
+   */
+  private async testInstanceAuthentication(
+    middlewareUrl: string,
+    tenantId: string,
+  ): Promise<boolean> {
+    // 获取租户的默认 MT 服务器配置
+    const mtServer = await this.prisma.mtServer.findFirst({
+      where: {
+        tenantId,
+        isActive: true,
+        isDefault: true,
+      },
+      include: {
+        managers: {
+          where: {
+            isActive: true,
+            isDefault: true,
+          },
+          take: 1,
+        },
+      },
+    });
+
+    // 如果没有默认服务器，尝试获取任意活跃服务器
+    const serverConfig = mtServer ?? await this.prisma.mtServer.findFirst({
+      where: {
+        tenantId,
+        isActive: true,
+      },
+      include: {
+        managers: {
+          where: {
+            isActive: true,
+          },
+          take: 1,
+        },
+      },
+    });
+
+    if (!serverConfig || serverConfig.managers.length === 0) {
+      this.logger.debug(`租户 ${tenantId} 没有配置活跃的 MT 服务器或经理账号`);
+      return false;
+    }
+
+    const manager = serverConfig.managers[0];
+
+    // 解密经理账号密码
+    const managerPassword = this.decryptManagerPassword(
+      manager.managerPasswordEncrypted,
+    );
+
+    // 调用中间件测试认证
+    return this.middlewareClient.testAuthentication(
+      middlewareUrl,
+      Number(manager.managerLogin),
+      managerPassword,
+      serverConfig.serverAddress,
+      serverConfig.serverId,
+      tenantId,
+    );
+  }
+
+  /**
+   * 解密经理账号密码
+   * TODO: 实现真正的解密逻辑
+   */
+  private decryptManagerPassword(encryptedPassword: string): string {
+    // 目前密码是明文存储的，直接返回
+    // TODO: 使用加密服务解密
+    return encryptedPassword;
+  }
 
   async create(createInstanceDto: CreateInstanceDto): Promise<MiddlewareInstance> {
     // Verify tenant exists and check instance limit
@@ -61,7 +191,7 @@ export class InstancesService {
   }
 
   async findAll(query: InstanceQueryDto): Promise<{
-    data: MiddlewareInstance[];
+    data: (MiddlewareInstance & { managerStatus: ManagerStatus })[];
     total: number;
     page: number;
     limit: number;
@@ -88,7 +218,7 @@ export class InstancesService {
       where.status = status;
     }
 
-    const [data, total] = await Promise.all([
+    const [instances, total] = await Promise.all([
       this.prisma.middlewareInstance.findMany({
         where,
         skip,
@@ -106,6 +236,20 @@ export class InstancesService {
       }),
       this.prisma.middlewareInstance.count({ where }),
     ]);
+
+    // 为每个实例添加经理账号连接状态（使用真实认证测试）
+    const data = await Promise.all(
+      instances.map(async (instance) => {
+        const { hasActiveManager } = await this.getManagerConfigStatus(instance.tenantId);
+        const managerStatus = await this.determineManagerStatus(
+          hasActiveManager,
+          instance.status,
+          instance,
+          instance.tenantId,
+        );
+        return { ...instance, managerStatus };
+      }),
+    );
 
     return {
       data,
@@ -126,6 +270,8 @@ export class InstancesService {
             name: true,
             code: true,
             status: true,
+            maxSessions: true,
+            maxManagerAccounts: true,
           },
         },
       },
@@ -183,7 +329,7 @@ export class InstancesService {
 
   async updateHealthStatus(
     id: string,
-    status: 'ONLINE' | 'OFFLINE' | 'ERROR',
+    status: 'ONLINE' | 'OFFLINE' | 'ERROR' | 'DEGRADED',
     healthData?: any,
   ): Promise<MiddlewareInstance> {
     await this.findOne(id);
@@ -200,10 +346,10 @@ export class InstancesService {
 
   /**
    * 执行实例健康检查 (REQ-4: 使用 HttpModule)
-   * 调用 MT5 Middleware 的 /health 端点
+   * 调用 MT5 Middleware 的 /health/detailed 端点
    */
   async checkHealth(id: string): Promise<{
-    status: 'online' | 'offline' | 'error';
+    status: 'online' | 'offline' | 'error' | 'degraded';
     message?: string;
     data?: any;
     latencyMs?: number;
@@ -213,7 +359,7 @@ export class InstancesService {
 
     try {
       const response: AxiosResponse<any> = await firstValueFrom(
-        this.httpService.get(`http://${instance.host}:${instance.port}/health`, {
+        this.httpService.get(`http://${instance.host}:${instance.port}/health/detailed`, {
           headers: {
             'X-API-Key': instance.apiKey,
           },
@@ -232,10 +378,26 @@ export class InstancesService {
         checkedAt: new Date().toISOString(),
       };
 
-      await this.updateHealthStatus(id, 'ONLINE', healthData);
+      // 根据详细健康状态映射数据库状态
+      const healthStatus = response.data?.status;
+      let dbStatus: 'ONLINE' | 'OFFLINE' | 'ERROR' | 'DEGRADED' = 'ONLINE';
+      let returnStatus: 'online' | 'offline' | 'error' | 'degraded' = 'online';
+
+      if (healthStatus === 'healthy') {
+        dbStatus = 'ONLINE';
+        returnStatus = 'online';
+      } else if (healthStatus === 'degraded') {
+        dbStatus = 'DEGRADED';
+        returnStatus = 'degraded';
+      } else if (healthStatus === 'unhealthy') {
+        dbStatus = 'ERROR';
+        returnStatus = 'error';
+      }
+
+      await this.updateHealthStatus(id, dbStatus, healthData);
 
       return {
-        status: 'online',
+        status: returnStatus,
         data: healthData,
         latencyMs,
       };
@@ -319,14 +481,18 @@ export class InstancesService {
     total: number;
     online: number;
     offline: number;
+    degraded: number;
     error: number;
+    suspended: number;
     byTenant: { tenantId: string; tenantName: string; count: number }[];
   }> {
-    const [total, online, offline, error, byTenant] = await Promise.all([
+    const [total, online, offline, degraded, error, suspended, byTenant] = await Promise.all([
       this.prisma.middlewareInstance.count(),
       this.prisma.middlewareInstance.count({ where: { status: 'ONLINE' } }),
       this.prisma.middlewareInstance.count({ where: { status: 'OFFLINE' } }),
+      this.prisma.middlewareInstance.count({ where: { status: 'DEGRADED' } }),
       this.prisma.middlewareInstance.count({ where: { status: 'ERROR' } }),
+      this.prisma.middlewareInstance.count({ where: { status: 'SUSPENDED' } }),
       this.prisma.middlewareInstance.groupBy({
         by: ['tenantId'],
         _count: { tenantId: true },
@@ -346,7 +512,9 @@ export class InstancesService {
       total,
       online,
       offline,
+      degraded,
       error,
+      suspended,
       byTenant: byTenant.map((t) => ({
         tenantId: t.tenantId,
         tenantName: tenantMap.get(t.tenantId) || 'Unknown',

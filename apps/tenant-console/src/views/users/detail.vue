@@ -402,8 +402,9 @@ const handleWithdraw = () => {
 
 const handleToggleStatus = () => {
   if (!user.value) return
-  const action = user.value.status === 'suspended' ? 'activate' : 'suspend'
-  const actionText = user.value.status === 'suspended' ? t('users.activate') : t('users.suspend')
+  const isDisabled = user.value.status === 'disabled' || user.value.status === 'suspended'
+  const action = isDisabled ? 'activate' : 'deactivate'
+  const actionText = isDisabled ? t('users.activate') : t('users.deactivate')
 
   dialog.warning({
     title: actionText,
@@ -412,8 +413,8 @@ const handleToggleStatus = () => {
     negativeText: t('common.cancel'),
     onPositiveClick: async () => {
       try {
-        if (action === 'suspend') {
-          await usersApi.suspendUser(userId.value)
+        if (action === 'deactivate') {
+          await usersApi.deactivateUser(userId.value)
         } else {
           await usersApi.activateUser(userId.value)
         }

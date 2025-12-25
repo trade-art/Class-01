@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/middleware-auth-refactor/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-17T07:57:58.550Z",
+      "trigger": "initial",
+      "approvalId": "approval_1765958278537_a08mumjh0",
+      "approvalTitle": "设计文档审批 - 中间件认证架构重构"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-17T07:59:08.674Z",
+      "trigger": "approved",
+      "approvalId": "approval_1765958278537_a08mumjh0",
+      "approvalTitle": "设计文档审批 - 中间件认证架构重构"
+    }
+  ]
+}

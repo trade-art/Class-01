@@ -289,3 +289,138 @@ export interface UserListParams extends PaginationParams {
   status?: string
   group?: string
 }
+
+// MT Server types
+export type PlatformType = 'MT4' | 'MT5'
+
+export interface MtServer {
+  id: string
+  serverId: string
+  displayName: string | null
+  platformType: PlatformType
+  middlewareId?: string
+  middlewareUrl: string
+  serverAddress: string
+  managerCount: number
+  /** 默认经理账号登录名 */
+  defaultManagerLogin: string | null
+  isActive: boolean
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateMtServerDto {
+  serverId: string
+  displayName?: string
+  platformType?: PlatformType
+  middlewareId: string
+  middlewareUrl: string
+  serverAddress: string
+  isDefault?: boolean
+}
+
+export interface UpdateMtServerDto {
+  displayName?: string
+  middlewareId?: string
+  middlewareUrl?: string
+  serverAddress?: string
+  isDefault?: boolean
+}
+
+// MT Manager types
+export interface MtManager {
+  id: string
+  mtServerId: string
+  serverName: string | null
+  serverId: string
+  platformType: PlatformType
+  managerLogin: string
+  displayName: string | null
+  isActive: boolean
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
+  // API Key 相关字段
+  apiKeyId?: string | null
+  apiKeyEnabled?: boolean
+  apiKeyCreatedAt?: string | null
+  apiKeyLastUsedAt?: string | null
+}
+
+export interface CreateMtManagerDto {
+  mtServerId: string
+  managerLogin: number
+  managerPassword: string
+  displayName?: string
+  isDefault?: boolean
+}
+
+export interface UpdateMtManagerDto {
+  managerPassword?: string
+  displayName?: string
+  isDefault?: boolean
+}
+
+export interface MtManagerListResponse {
+  managers: MtManager[]
+  total: number
+}
+
+export interface ConnectionTestResult {
+  success: boolean
+  latency: number
+  serverVersion?: string
+  serverTime?: string
+  error?: string
+}
+
+export interface MtServerListResponse {
+  servers: MtServer[]
+  total: number
+}
+
+export interface MtServerQuota {
+  maxServers: number
+  currentServers: number
+  availableSlots: number
+  supportedPlatforms: PlatformType[]
+  canAddServer: boolean
+}
+
+// MT Manager API Key types
+export interface MtManagerApiKeyStatus {
+  hasApiKey: boolean
+  apiKeyId: string | null
+  apiKeyEnabled: boolean
+  apiKeyAllowedIps: string[]
+  apiKeyScopes: string[]
+  apiKeyCreatedAt: string | null
+  apiKeyLastUsedAt: string | null
+  apiKeyLastUsedIp: string | null
+}
+
+export interface GenerateMtManagerApiKeyResponse {
+  apiKeyId: string
+  apiSecret: string
+  message: string
+}
+
+// API Key Scope types
+export interface ApiKeyScopeOption {
+  value: string
+  label: string
+}
+
+export interface AvailableScopesResponse {
+  scopes: ApiKeyScopeOption[]
+}
+
+export interface GenerateMtManagerApiKeyDto {
+  scopes?: string[]
+}
+
+export interface GetMtManagerApiSecretResponse {
+  apiKeyId: string
+  apiSecret: string
+}

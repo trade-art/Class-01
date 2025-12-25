@@ -328,8 +328,15 @@ export class WebSocketBridgeService implements OnModuleInit, OnModuleDestroy {
     state: ConnectionState,
   ): Promise<void> {
     try {
-      // 获取 JWT token
-      const token = await this.middlewareAuth.getAccessToken(instanceId);
+      // 获取租户 ID
+      const tenantId = this.instanceTenantMap.get(instanceId);
+
+      // 获取 JWT token (传递 tenantId 以便从数据库获取凭证)
+      const token = await this.middlewareAuth.getAccessToken(
+        instanceId,
+        undefined,
+        tenantId,
+      );
 
       // 构建 WebSocket URL
       const wsPath = channel === WsChannelType.MARKET ? '/ws/market' : '/ws/trading';

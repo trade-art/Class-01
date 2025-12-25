@@ -48,12 +48,11 @@ async function main() {
 
   const tenantAdmin = await prisma.tenantAdmin.upsert({
     where: {
-      tenantId_email: {
-        tenantId: demoTenant.id,
-        email: 'admin@demo.com',
-      },
+      email: 'admin@demo.com',
     },
-    update: {},
+    update: {
+      password: tenantAdminPassword, // 确保密码与 seed 定义一致
+    },
     create: {
       tenantId: demoTenant.id,
       email: 'admin@demo.com',
@@ -83,8 +82,6 @@ async function main() {
       platformType: 'MT5',
       middlewareUrl: 'http://localhost:8080',
       serverAddress: 'demo.mt5server.com:443',
-      managerLogin: BigInt(1000),
-      managerPasswordEncrypted: 'encrypted_password_placeholder', // Should be encrypted in production
       isActive: true,
       isDefault: true,
     },

@@ -1,13 +1,23 @@
 <template>
   <div class="page-container">
     <div class="page-header flex-between">
-      <h1 class="page-title">{{ t('settings.admins') }}</h1>
-      <n-button type="primary" @click="handleCreate">
-        <template #icon>
-          <span class="i-carbon-add"></span>
+      <div class="header-left">
+        <h1 class="page-title">{{ t('settings.admins') }}</h1>
+        <n-tag v-if="quotaInfo" :type="quotaStatus" size="small" class="quota-tag">
+          {{ quotaInfo.admins.used }} / {{ quotaInfo.admins.max === -1 ? t('subscription.unlimited') : quotaInfo.admins.max }}
+        </n-tag>
+      </div>
+      <n-tooltip :disabled="canAddAdmin">
+        <template #trigger>
+          <n-button type="primary" :disabled="!canAddAdmin" @click="handleCreate">
+            <template #icon>
+              <span class="i-carbon-add"></span>
+            </template>
+            {{ t('settings.addAdmin') }}
+          </n-button>
         </template>
-        {{ t('settings.addAdmin') }}
-      </n-button>
+        {{ t('settings.quotaReached') }}
+      </n-tooltip>
     </div>
 
     <!-- Admins Table -->
@@ -92,13 +102,14 @@ import {
   NSelect,
   NTag,
   NDropdown,
+  NTooltip,
   useMessage,
   useDialog,
   type DataTableColumns,
   type FormInst,
   type FormRules,
 } from 'naive-ui'
-import { settingsApi } from '@/api/settings'
+import { settingsApi, type SubscriptionStatus } from '@/api/settings'
 import { useAuthStore } from '@/stores/auth'
 import type { TenantAdmin, TenantAdminRole } from '@/types'
 
@@ -113,6 +124,25 @@ const showModal = ref(false)
 const editingAdmin = ref<TenantAdmin | null>(null)
 const submitting = ref(false)
 const admins = ref<TenantAdmin[]>([])
+const quotaInfo = ref<SubscriptionStatus | null>(null)
+
+// 计算是否可以添加管理员
+const canAddAdmin = computed(() => {
+  if (!quotaInfo.value) return true // 如果配额信息未加载，允许操作
+  const { admins: quota } = quotaInfo.value
+  // -1 表示无限制
+  if (quota.max === -1) return true
+  return quota.used < quota.max
+})
+
+// 计算配额状态用于显示标签颜色
+const quotaStatus = computed((): 'success' | 'warning' | 'error' => {
+  if (!quotaInfo.value) return 'success'
+  const { percentage } = quotaInfo.value.admins
+  if (percentage >= 100) return 'error'
+  if (percentage >= 70) return 'warning'
+  return 'success'
+})
 
 const formData = reactive({
   name: '',
@@ -249,6 +279,14 @@ const loadAdmins = async () => {
   }
 }
 
+const loadQuotaInfo = async () => {
+  try {
+    quotaInfo.value = await settingsApi.getSubscriptionStatus()
+  } catch (error) {
+    console.error('Failed to load quota info:', error)
+  }
+}
+
 const handleCreate = () => {
   editingAdmin.value = null
   Object.assign(formData, {
@@ -376,5 +414,18 @@ const handleDelete = (admin: TenantAdmin) => {
 
 onMounted(() => {
   loadAdmins()
+  loadQuotaInfo()
 })
 </script>
+
+<style scoped>
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.quota-tag {
+  font-weight: 500;
+}
+</style>

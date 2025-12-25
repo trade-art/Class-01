@@ -17,7 +17,31 @@ import {
   GetSymbolsParams,
   ServerStatus,
   MtServerConfig,
+  // 交易操作类型
+  OpenOrderParams,
+  ClosePositionParams,
+  ModifyPositionParams,
+  PendingOrderParams,
+  ModifyOrderParams,
+  CancelOrderParams,
+  BalanceOperationParams,
+  TradeResult,
+  // 用户管理类型
+  CreateUserParams,
+  UpdateUserParams,
+  ChangePasswordParams,
+  CreateUserResult,
+  // 市场数据类型
+  CandleData,
+  TickData,
+  GetCandlesParams,
+  GetTicksParams,
+  // 批量操作类型
+  BatchOpenOrderParams,
+  BatchClosePositionParams,
+  BatchOperationResult,
 } from '../adapters/types';
+import { MiddlewareUnavailableException } from '../exceptions';
 
 /**
  * 租户上下文
@@ -49,9 +73,14 @@ export class TradingService {
   /**
    * 获取租户的交易适配器
    * 如果指定了 serverId，使用指定服务器；否则使用默认服务器
+   * 会先检查熔断器状态，如果熔断器打开则抛出异常
    */
   async getAdapter(ctx: TenantContext): Promise<TradingPlatformAdapter> {
     const serverConfig = await this.getServerConfig(ctx);
+
+    // 检查熔断器状态
+    this.checkCircuitBreaker(ctx.tenantId, serverConfig.serverId);
+
     return this.adapterFactory.getAdapter(serverConfig);
   }
 
@@ -446,18 +475,262 @@ export class TradingService {
 
   /**
    * 确保适配器已认证
-   * 如果未认证或令牌即将过期，自动进行认证
+   * 如果未认证或令牌即将过期（5分钟内），自动进行认证或刷新
    */
   private async ensureAuthenticated(
     ctx: TenantContext,
     adapter: TradingPlatformAdapter,
   ): Promise<void> {
+    // 如果未认证，执行完整认证流程
     if (!adapter.isAuthenticated()) {
       const serverConfig = await this.getServerConfig(ctx);
       await adapter.authenticate(
         serverConfig.managerLogin,
         serverConfig.managerPassword,
       );
+      return;
     }
+
+    // 如果令牌即将过期（5分钟内），主动刷新令牌
+    if (adapter.isTokenExpiring(5)) {
+      try {
+        this.logger.log(
+          `令牌即将过期，主动刷新 (租户: ${ctx.tenantId}, 服务器: ${ctx.serverId || 'default'})`,
+        );
+        await adapter.refreshToken();
+        this.logger.log(
+          `令牌刷新成功 (租户: ${ctx.tenantId}, 服务器: ${ctx.serverId || 'default'})`,
+        );
+      } catch (error) {
+        // 刷新失败时，尝试重新认证
+        this.logger.warn(
+          `令牌刷新失败，尝试重新认证 (租户: ${ctx.tenantId}, 错误: ${error instanceof Error ? error.message : '未知错误'})`,
+        );
+        const serverConfig = await this.getServerConfig(ctx);
+        await adapter.authenticate(
+          serverConfig.managerLogin,
+          serverConfig.managerPassword,
+        );
+      }
+    }
+  }
+
+  /**
+   * 检查熔断器状态
+   * 如果熔断器打开，抛出 MiddlewareUnavailableException
+   */
+  private checkCircuitBreaker(tenantId: string, serverId: string): void {
+    if (this.adapterFactory.isCircuitBreakerOpen(tenantId, serverId)) {
+      this.logger.warn(
+        `熔断器已打开，拒绝请求 (租户: ${tenantId}, 服务器: ${serverId})`,
+      );
+      throw new MiddlewareUnavailableException({
+        tenantId,
+        serverId,
+        message: `MT 服务器 ${serverId} 暂时不可用，熔断器已打开`,
+        retryAfter: 30,
+      });
+    }
+  }
+
+  /**
+   * 记录请求成功
+   */
+  private recordSuccess(tenantId: string, serverId: string): void {
+    this.adapterFactory.recordSuccess(tenantId, serverId);
+  }
+
+  /**
+   * 记录请求失败
+   */
+  private recordFailure(tenantId: string, serverId: string): void {
+    this.adapterFactory.recordFailure(tenantId, serverId);
+  }
+
+  /**
+   * 执行带熔断器保护的适配器操作
+   * @param ctx 租户上下文
+   * @param operation 要执行的操作
+   * @returns 操作结果
+   */
+  async executeWithCircuitBreaker<T>(
+    ctx: TenantContext,
+    operation: (adapter: TradingPlatformAdapter) => Promise<T>,
+  ): Promise<T> {
+    const serverConfig = await this.getServerConfig(ctx);
+    const serverId = serverConfig.serverId;
+
+    // 检查熔断器
+    this.checkCircuitBreaker(ctx.tenantId, serverId);
+
+    const adapter = await this.adapterFactory.getAdapter(serverConfig);
+    await this.ensureAuthenticated(ctx, adapter);
+
+    try {
+      const result = await operation(adapter);
+      this.recordSuccess(ctx.tenantId, serverId);
+      return result;
+    } catch (error) {
+      this.recordFailure(ctx.tenantId, serverId);
+      throw error;
+    }
+  }
+
+  // ============================================================
+  // 交易操作
+  // ============================================================
+
+  /**
+   * 开仓 (市价单)
+   */
+  async openOrder(ctx: TenantContext, params: OpenOrderParams): Promise<TradeResult> {
+    return this.executeWithCircuitBreaker(ctx, (adapter) => adapter.openOrder(params));
+  }
+
+  /**
+   * 平仓
+   */
+  async closePosition(
+    ctx: TenantContext,
+    params: ClosePositionParams,
+  ): Promise<TradeResult> {
+    return this.executeWithCircuitBreaker(ctx, (adapter) =>
+      adapter.closePosition(params),
+    );
+  }
+
+  /**
+   * 修改持仓 (止损/止盈)
+   */
+  async modifyPosition(
+    ctx: TenantContext,
+    params: ModifyPositionParams,
+  ): Promise<TradeResult> {
+    return this.executeWithCircuitBreaker(ctx, (adapter) =>
+      adapter.modifyPosition(params),
+    );
+  }
+
+  /**
+   * 挂单
+   */
+  async placePendingOrder(
+    ctx: TenantContext,
+    params: PendingOrderParams,
+  ): Promise<TradeResult> {
+    return this.executeWithCircuitBreaker(ctx, (adapter) =>
+      adapter.placePendingOrder(params),
+    );
+  }
+
+  /**
+   * 修改挂单
+   */
+  async modifyOrder(
+    ctx: TenantContext,
+    params: ModifyOrderParams,
+  ): Promise<TradeResult> {
+    return this.executeWithCircuitBreaker(ctx, (adapter) => adapter.modifyOrder(params));
+  }
+
+  /**
+   * 取消挂单
+   */
+  async cancelOrder(
+    ctx: TenantContext,
+    params: CancelOrderParams,
+  ): Promise<TradeResult> {
+    return this.executeWithCircuitBreaker(ctx, (adapter) => adapter.cancelOrder(params));
+  }
+
+  /**
+   * 余额操作 (入金/出金/信用/调整)
+   */
+  async balanceOperation(
+    ctx: TenantContext,
+    params: BalanceOperationParams,
+  ): Promise<TradeResult> {
+    return this.executeWithCircuitBreaker(ctx, (adapter) =>
+      adapter.balanceOperation(params),
+    );
+  }
+
+  // ============================================================
+  // 用户管理 (扩展)
+  // ============================================================
+
+  /**
+   * 创建用户
+   */
+  async createUser(
+    ctx: TenantContext,
+    params: CreateUserParams,
+  ): Promise<CreateUserResult> {
+    return this.executeWithCircuitBreaker(ctx, (adapter) => adapter.createUser(params));
+  }
+
+  /**
+   * 更新用户信息
+   */
+  async updateUser(ctx: TenantContext, params: UpdateUserParams): Promise<boolean> {
+    return this.executeWithCircuitBreaker(ctx, (adapter) => adapter.updateUser(params));
+  }
+
+  /**
+   * 修改用户密码
+   */
+  async changePassword(
+    ctx: TenantContext,
+    params: ChangePasswordParams,
+  ): Promise<boolean> {
+    return this.executeWithCircuitBreaker(ctx, (adapter) =>
+      adapter.changePassword(params),
+    );
+  }
+
+  // ============================================================
+  // 市场数据
+  // ============================================================
+
+  /**
+   * 获取 K 线数据
+   */
+  async getCandles(ctx: TenantContext, params: GetCandlesParams): Promise<CandleData[]> {
+    return this.executeWithCircuitBreaker(ctx, (adapter) => adapter.getCandles(params));
+  }
+
+  /**
+   * 获取 Tick 数据
+   */
+  async getTicks(ctx: TenantContext, params: GetTicksParams): Promise<TickData[]> {
+    return this.executeWithCircuitBreaker(ctx, (adapter) => adapter.getTicks(params));
+  }
+
+  // ============================================================
+  // 批量交易操作
+  // ============================================================
+
+  /**
+   * 批量开仓
+   */
+  async batchOpenOrders(
+    ctx: TenantContext,
+    params: BatchOpenOrderParams,
+  ): Promise<BatchOperationResult> {
+    return this.executeWithCircuitBreaker(ctx, (adapter) =>
+      adapter.batchOpenOrders(params),
+    );
+  }
+
+  /**
+   * 批量平仓
+   */
+  async batchClosePositions(
+    ctx: TenantContext,
+    params: BatchClosePositionParams,
+  ): Promise<BatchOperationResult> {
+    return this.executeWithCircuitBreaker(ctx, (adapter) =>
+      adapter.batchClosePositions(params),
+    );
   }
 }

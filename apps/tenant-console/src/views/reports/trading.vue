@@ -7,7 +7,7 @@
           v-model:value="dateRange"
           type="daterange"
           :placeholder="[t('reports.startDate'), t('reports.endDate')] as any"
-          @update:value="loadReport"
+          @update:value="() => loadReport(true)"
         />
         <n-button @click="handleExport">
           <template #icon>
@@ -115,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, h } from 'vue'
+import { ref, reactive, onMounted, h, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   NCard,
@@ -126,10 +126,12 @@ import {
   NDataTable,
   NEmpty,
   NProgress,
+  NSkeleton,
   useMessage,
   type DataTableColumns,
 } from 'naive-ui'
 import { reportsApi } from '@/api/reports'
+import { useReportsStore } from '@/stores/reports'
 import LineChart from '@/components/charts/LineChart.vue'
 import BarChart from '@/components/charts/BarChart.vue'
 
@@ -143,9 +145,14 @@ interface SymbolAnalysis {
 
 const { t } = useI18n()
 const message = useMessage()
+const reportsStore = useReportsStore()
 
-const loading = ref(false)
+const localLoading = ref(false)
+const initialLoading = ref(true)
 const dateRange = ref<[number, number] | null>(null)
+
+// 使用 Store 的 loading 状态或本地 loading
+const loading = computed(() => reportsStore.tradingLoading || localLoading.value)
 
 const report = reactive({
   totalTrades: 0,
@@ -220,16 +227,17 @@ const formatCurrency = (value: number, showSign = false) => {
   return value >= 0 ? formatted : '-' + formatted
 }
 
-const loadReport = async () => {
-  loading.value = true
+const loadReport = async (forceRefresh = false) => {
   try {
     const params: any = {}
     if (dateRange.value) {
-      params.startDate = new Date(dateRange.value[0]).toISOString()
-      params.endDate = new Date(dateRange.value[1]).toISOString()
+      // 截断到秒级，避免毫秒差异导致缓存失效
+      params.startDate = new Date(dateRange.value[0]).toISOString().split('.')[0] + 'Z'
+      params.endDate = new Date(dateRange.value[1]).toISOString().split('.')[0] + 'Z'
     }
 
-    const data = await reportsApi.getTradingReport(params)
+    // 使用带缓存的 Store 方法
+    const data = await reportsStore.getTradingReport(params, forceRefresh)
     Object.assign(report, data.summary)
     trendData.value = data.trend || []
     profitDistribution.value = data.profitDistribution || []
@@ -237,7 +245,7 @@ const loadReport = async () => {
   } catch (error) {
     console.error('Failed to load report:', error)
   } finally {
-    loading.value = false
+    initialLoading.value = false
   }
 }
 
@@ -260,7 +268,27 @@ onMounted(() => {
   // Default to last 30 days
   const now = Date.now()
   dateRange.value = [now - 30 * 24 * 60 * 60 * 1000, now]
-  loadReport()
+
+  // 构建参数
+  const params: any = {
+    startDate: new Date(dateRange.value[0]).toISOString().split('.')[0] + 'Z',
+    endDate: new Date(dateRange.value[1]).toISOString().split('.')[0] + 'Z',
+  }
+
+  // 1. 先尝试显示缓存数据（立即响应，无 loading）
+  const cachedData = reportsStore.getCachedData('trading', params)
+  if (cachedData) {
+    Object.assign(report, cachedData.summary)
+    trendData.value = cachedData.trend || []
+    profitDistribution.value = cachedData.profitDistribution || []
+    symbolAnalysis.value = cachedData.symbolAnalysis || []
+    initialLoading.value = false
+    // 后台静默刷新
+    loadReport(true)
+  } else {
+    // 无缓存，正常加载
+    loadReport()
+  }
 })
 </script>
 

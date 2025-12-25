@@ -2,10 +2,11 @@ import { Module, Global } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { HttpExceptionFilter, AllExceptionsFilter } from './filters';
 import { ResponseInterceptor } from './interceptors';
+import { EncryptionService } from './services/encryption.service';
 
 /**
  * 公共模块
- * 提供全局异常过滤器和响应拦截器
+ * 提供全局异常过滤器、响应拦截器和公共服务
  */
 @Global()
 @Module({
@@ -24,7 +25,9 @@ import { ResponseInterceptor } from './interceptors';
       provide: APP_INTERCEPTOR,
       useClass: ResponseInterceptor,
     },
+    // 公共服务
+    EncryptionService,
   ],
-  exports: [],
+  exports: [EncryptionService],
 })
 export class CommonModule {}

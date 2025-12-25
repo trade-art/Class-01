@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
-import { useUserStore } from '@/stores/user'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -68,6 +67,24 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '交易数据' },
       },
       {
+        path: 'middleware',
+        name: 'Middleware',
+        component: () => import('@/views/middleware/index.vue'),
+        meta: { title: '中间件管理' },
+      },
+      {
+        path: 'middleware/:id',
+        name: 'MiddlewareDetail',
+        component: () => import('@/views/middleware/detail.vue'),
+        meta: { title: '中间件详情' },
+      },
+      {
+        path: 'middleware/:id/config',
+        name: 'MiddlewareConfig',
+        component: () => import('@/views/middleware/config.vue'),
+        meta: { title: '中间件配置' },
+      },
+      {
         path: 'profile',
         name: 'Profile',
         component: () => import('@/views/profile/index.vue'),
@@ -82,18 +99,35 @@ const router = createRouter({
   routes,
 })
 
-// Navigation guard
-router.beforeEach((to, _from, next) => {
+// Navigation guard - 动态导入 store 确保 pinia 已初始化
+router.beforeEach(async (to, _from, next) => {
+  // 动态导入确保 pinia 已注册
+  const { useUserStore } = await import('@/stores/user')
   const userStore = useUserStore()
 
+  // 公开页面直接放行
   if (to.meta.public) {
     next()
     return
   }
 
-  if (!userStore.isLoggedIn) {
+  // 检查 token 是否存在
+  const token = localStorage.getItem('token')
+  if (!token) {
     next('/login')
     return
+  }
+
+  // 如果有 token 但没有用户信息，尝试获取用户资料
+  if (!userStore.user) {
+    try {
+      await userStore.fetchProfile()
+    } catch {
+      // token 无效，清除并跳转登录
+      userStore.logout()
+      next('/login')
+      return
+    }
   }
 
   next()

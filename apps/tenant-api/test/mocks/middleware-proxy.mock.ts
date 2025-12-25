@@ -343,6 +343,54 @@ export class MockMiddlewareProxyService {
     return this.isConnected;
   });
 
+  /**
+   * 测试身份验证 (用于 DashboardService)
+   */
+  testAuthentication = jest.fn().mockImplementation(async (instanceId: string) => {
+    if (!this.isConnected) {
+      throw new Error('Middleware service unavailable');
+    }
+    return {
+      success: true,
+      serverTime: new Date().toISOString(),
+      latency: 50,
+    };
+  });
+
+  /**
+   * 获取用户列表 (用于 DashboardService)
+   */
+  getUsers = jest.fn().mockImplementation(async (instanceId: string, params?: any) => {
+    if (!this.isConnected) {
+      throw new Error('Middleware service unavailable');
+    }
+    return this.getMockUsers(params);
+  });
+
+  /**
+   * 获取所有持仓用于仪表板 (用于 DashboardService)
+   */
+  getAllPositionsForDashboard = jest.fn().mockImplementation(async (instanceId: string) => {
+    if (!this.isConnected) {
+      throw new Error('Middleware service unavailable');
+    }
+    return TEST_POSITIONS;
+  });
+
+  /**
+   * 获取最近交易用于仪表板 (用于 DashboardService)
+   */
+  getRecentDealsForDashboard = jest.fn().mockImplementation(async (instanceId: string, limit?: number) => {
+    if (!this.isConnected) {
+      throw new Error('Middleware service unavailable');
+    }
+    const deals = [...TEST_HISTORY_ORDERS].slice(0, limit || 10);
+    return {
+      deals,
+      total: deals.length,
+    };
+  });
+
   // ==================== 私有辅助方法 ====================
 
   private getMockHealth() {

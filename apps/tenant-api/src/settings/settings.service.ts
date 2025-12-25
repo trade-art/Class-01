@@ -26,6 +26,9 @@ import {
   NotificationSettingsDto,
   UpdateNotificationSettingsDto,
   MT5ServerInfoDto,
+  SubscriptionStatusDto,
+  SubscriptionPlan,
+  ResourceUsageDto,
 } from './dto';
 
 /**
@@ -340,9 +343,9 @@ export class SettingsService {
       data: {
         tenantId,
         name: dto.name,
-        key: rawKey.substring(0, 16), // 存储前缀用于显示
+        keyPrefix: rawKey.substring(0, 8), // 存储前缀用于显示
         hashedKey: keyHash,
-        permissions: dto.permissions as unknown as Prisma.InputJsonValue,
+        scopes: dto.permissions, // permissions 映射到 scopes
         isActive: true,
       },
     });
@@ -376,7 +379,7 @@ export class SettingsService {
 
     const updated = await this.prisma.apiKey.update({
       where: { id: keyId },
-      data: { permissions: dto.permissions as unknown as Prisma.InputJsonValue },
+      data: { scopes: dto.permissions }, // permissions 映射到 scopes
     });
 
     this.logger.log(`更新 API 密钥 ${keyId} 权限`);
@@ -406,14 +409,14 @@ export class SettingsService {
     const updated = await this.prisma.apiKey.update({
       where: { id: keyId },
       data: {
-        key: rawKey.substring(0, 16),
+        keyPrefix: rawKey.substring(0, 8),
         hashedKey: keyHash,
       },
     });
 
     this.logger.log(`重新生成 API 密钥 ${keyId}`);
 
-    const permissions = this.parsePermissions(updated.permissions);
+    const permissions = this.parseScopesToPermissions(updated.scopes);
 
     return {
       id: updated.id,
@@ -609,13 +612,20 @@ export class SettingsService {
   }
 
   /**
-   * 解析权限 JSON
+   * 解析权限 JSON (兼容旧版本)
    */
   private parsePermissions(permissions: Prisma.JsonValue): string[] {
     if (Array.isArray(permissions)) {
       return permissions.map((p) => String(p));
     }
     return [];
+  }
+
+  /**
+   * 解析 scopes 到 permissions (新版本字段映射)
+   */
+  private parseScopesToPermissions(scopes: string[]): string[] {
+    return scopes || [];
   }
 
   private mapToAdminDto(admin: {
@@ -641,8 +651,8 @@ export class SettingsService {
   private mapToApiKeyDto(apiKey: {
     id: string;
     name: string;
-    key: string;
-    permissions: Prisma.JsonValue;
+    keyPrefix: string;
+    scopes: string[];
     isActive: boolean;
     lastUsedAt: Date | null;
     createdAt: Date;
@@ -650,11 +660,135 @@ export class SettingsService {
     return {
       id: apiKey.id,
       name: apiKey.name,
-      keyPrefix: `${apiKey.key.substring(0, 8)}****`,
-      permissions: this.parsePermissions(apiKey.permissions),
+      keyPrefix: `${apiKey.keyPrefix}****`,
+      permissions: apiKey.scopes || [],
       isActive: apiKey.isActive,
       lastUsedAt: apiKey.lastUsedAt?.toISOString(),
       createdAt: apiKey.createdAt.toISOString(),
     };
+  }
+
+  // ============================================
+  // Subscription & Quota (订阅与配额)
+  // ============================================
+
+  /**
+   * 获取订阅状态与配额使用情况
+   */
+  async getSubscriptionStatus(tenantId: string): Promise<SubscriptionStatusDto> {
+    // 获取租户信息（包含配额限制）
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        plan: true,
+        status: true,
+        expiresAt: true,
+        maxInstances: true,
+        maxAdmins: true,
+        maxMtServers: true,
+        maxManagerAccounts: true,
+        supportedPlatforms: true,
+        _count: {
+          select: {
+            admins: true,
+            mtServers: true,
+            instances: true,
+          },
+        },
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('租户不存在');
+    }
+
+    // 计算剩余天数
+    let daysRemaining = -1; // -1 表示永不过期
+    let isExpiringSoon = false;
+
+    if (tenant.expiresAt) {
+      const now = new Date();
+      const expiresAt = new Date(tenant.expiresAt);
+      const diffTime = expiresAt.getTime() - now.getTime();
+      daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      isExpiringSoon = daysRemaining > 0 && daysRemaining <= 30;
+    }
+
+    // 构建资源使用情况
+    const buildResourceUsage = (used: number, max: number): ResourceUsageDto => ({
+      used,
+      max,
+      percentage: max > 0 ? Math.round((used / max) * 100) : 0,
+    });
+
+    return {
+      plan: tenant.plan as SubscriptionPlan,
+      status: tenant.status,
+      expiresAt: tenant.expiresAt?.toISOString(),
+      isExpiringSoon,
+      daysRemaining,
+      supportedPlatforms: tenant.supportedPlatforms || ['MT5'],
+      admins: buildResourceUsage(tenant._count.admins, tenant.maxAdmins),
+      mtServers: buildResourceUsage(tenant._count.mtServers, tenant.maxMtServers),
+      // MT经理账号数量 = 已配置的 MT 服务器数量（每个服务器有一个经理账号）
+      managerAccounts: buildResourceUsage(tenant._count.mtServers, tenant.maxManagerAccounts),
+      instances: buildResourceUsage(tenant._count.instances, tenant.maxInstances),
+    };
+  }
+
+  /**
+   * 检查是否可以添加管理员
+   */
+  async canAddAdmin(tenantId: string): Promise<{ canAdd: boolean; message?: string }> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        maxAdmins: true,
+        _count: {
+          select: { admins: true },
+        },
+      },
+    });
+
+    if (!tenant) {
+      return { canAdd: false, message: '租户不存在' };
+    }
+
+    if (tenant._count.admins >= tenant.maxAdmins) {
+      return {
+        canAdd: false,
+        message: `已达到管理员数量上限 (${tenant.maxAdmins})，请升级订阅计划或联系平台管理员`,
+      };
+    }
+
+    return { canAdd: true };
+  }
+
+  /**
+   * 检查是否可以添加 MT 服务器
+   */
+  async canAddMtServer(tenantId: string): Promise<{ canAdd: boolean; message?: string }> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        maxMtServers: true,
+        _count: {
+          select: { mtServers: true },
+        },
+      },
+    });
+
+    if (!tenant) {
+      return { canAdd: false, message: '租户不存在' };
+    }
+
+    if (tenant._count.mtServers >= tenant.maxMtServers) {
+      return {
+        canAdd: false,
+        message: `已达到 MT 服务器数量上限 (${tenant.maxMtServers})，请升级订阅计划或联系平台管理员`,
+      };
+    }
+
+    return { canAdd: true };
   }
 }

@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { TradingUser } from '@/types'
+import type { TradingUser, MtManager } from '@/types'
 import { usersApi, type UserListParams } from '@/api/users'
+import { mtManagersApi } from '@/api/mt-managers'
 
 export const useUsersStore = defineStore('users', () => {
   // State
@@ -11,6 +12,11 @@ export const useUsersStore = defineStore('users', () => {
   const pageSize = ref(20)
   const loading = ref(false)
   const groups = ref<string[]>([])
+
+  // MT Manager state
+  const mtManagers = ref<MtManager[]>([])
+  const currentManagerId = ref<string | null>(null)
+  const managersLoading = ref(false)
 
   // Current user detail
   const currentUser = ref<TradingUser | null>(null)
@@ -31,7 +37,33 @@ export const useUsersStore = defineStore('users', () => {
     total: total.value,
   }))
 
+  // Computed - current manager
+  const currentManager = computed(() => {
+    if (!currentManagerId.value) return null
+    return mtManagers.value.find((m) => m.id === currentManagerId.value) || null
+  })
+
   // Actions
+  const loadManagers = async () => {
+    managersLoading.value = true
+    try {
+      const response = await mtManagersApi.getManagers()
+      mtManagers.value = response.managers.filter((m) => m.isActive)
+      // 默认选择默认经理账户或第一个
+      if (mtManagers.value.length > 0 && !currentManagerId.value) {
+        const defaultManager = mtManagers.value.find((m) => m.isDefault)
+        currentManagerId.value = defaultManager?.id || mtManagers.value[0].id
+      }
+      return response.managers
+    } finally {
+      managersLoading.value = false
+    }
+  }
+
+  const setCurrentManager = (managerId: string) => {
+    currentManagerId.value = managerId
+  }
+
   const loadUsers = async (params?: Partial<UserListParams>) => {
     loading.value = true
     try {
@@ -43,6 +75,7 @@ export const useUsersStore = defineStore('users', () => {
         status: params?.status ?? statusFilter.value,
         sortBy: params?.sortBy ?? sortBy.value,
         sortOrder: params?.sortOrder ?? sortOrder.value,
+        managerId: params?.managerId ?? currentManagerId.value ?? undefined,
       })
 
       users.value = response.items
@@ -59,9 +92,10 @@ export const useUsersStore = defineStore('users', () => {
   // Alias for loadUsers
   const fetchUsers = loadUsers
 
-  const loadGroups = async () => {
+  const loadGroups = async (managerId?: string) => {
     try {
-      groups.value = await usersApi.getGroups()
+      const id = managerId ?? currentManagerId.value ?? undefined
+      groups.value = await usersApi.getGroups(id)
     } catch {
       groups.value = []
     }
@@ -142,16 +176,16 @@ export const useUsersStore = defineStore('users', () => {
     await usersApi.resetPassword(login)
   }
 
-  // Suspend user
-  const suspendUser = async (login: number | string) => {
-    await usersApi.suspendUser(login)
+  // Deactivate user
+  const deactivateUser = async (login: number | string) => {
+    await usersApi.deactivateUser(login)
     // Update local state
     const user = users.value.find((u) => u.login === login)
     if (user) {
-      user.status = 'suspended'
+      user.status = 'disabled'
     }
     if (currentUser.value?.login === login) {
-      currentUser.value.status = 'suspended'
+      currentUser.value.status = 'disabled'
     }
   }
 
@@ -210,6 +244,11 @@ export const useUsersStore = defineStore('users', () => {
     sortBy,
     sortOrder,
     pagination,
+    // MT Manager state
+    mtManagers,
+    currentManagerId,
+    currentManager,
+    managersLoading,
 
     // Actions
     loadUsers,
@@ -222,10 +261,13 @@ export const useUsersStore = defineStore('users', () => {
     updateUser,
     createUser,
     resetPassword,
-    suspendUser,
+    deactivateUser,
     activateUser,
     setFilters,
     resetFilters,
     clearCurrentUser,
+    // MT Manager actions
+    loadManagers,
+    setCurrentManager,
   }
 })

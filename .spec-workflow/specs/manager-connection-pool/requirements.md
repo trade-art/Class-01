@@ -1,0 +1,215 @@
+# Requirements Document - Manager Connection Pool
+
+## Introduction
+
+本功能改造 MT5 中间件的连接管理架构，从"按需连接"模式改为"预连接池"模式。中间件启动时主动连接所有经理账号，第三方应用请求时直接使用已建立的连接，显著提升响应速度和系统稳定性。
+
+同时解决两个关键安全问题：
+1. **managerLogin 重名问题**：不同 MT5 服务器上可能存在相同的 managerLogin
+2. **Token 安全性问题**：避免在 Token 中暴露 managerLogin 等敏感信息
+
+## Alignment with Product Vision
+
+此功能支持 MT5 SaaS 平台的核心目标：
+- **高性能**：消除首次请求的连接建立延迟
+- **高可用**：预热连接，早期发现问题
+- **安全性**：敏感信息不暴露在 Token 中
+- **多租户支持**：正确处理多服务器、多经理账号场景
+
+## Requirements
+
+### REQ-1: 中间件启动时预连接经理账号
+
+**User Story:** 作为系统管理员，我希望 C++ 中间件启动时自动连接所有经理账号，以便第三方应用可以立即使用而无需等待连接建立。
+
+#### Acceptance Criteria
+
+1. WHEN 中间件启动 THEN 中间件 SHALL 调用 Tenant API 内部接口获取该中间件实例需要连接的所有启用状态的经理账号列表
+2. WHEN 获取到经理账号列表 THEN 中间件 SHALL 依次解密密码并建立与 MT5 服务器的连接
+3. IF 某个经理账号连接失败 THEN 中间件 SHALL 记录错误日志并继续连接其他账号，不影响整体启动
+4. WHEN 所有连接尝试完成 THEN 中间件 SHALL 输出连接池状态统计（成功/失败数量）
+
+### REQ-2: Tenant API 提供内部接口
+
+**User Story:** 作为 C++ 中间件，我需要调用 Tenant API 的内部接口获取经理账号列表，以便启动时建立连接池。
+
+#### Acceptance Criteria
+
+1. WHEN 中间件调用 `GET /internal/managers?middlewareId=xxx` THEN Tenant API SHALL 验证 X-Internal-Secret 头
+2. IF X-Internal-Secret 无效 THEN Tenant API SHALL 返回 401 Unauthorized
+3. WHEN 验证通过 THEN Tenant API SHALL 返回该中间件实例关联的所有启用状态的经理账号信息
+4. WHEN 返回经理账号信息 THEN 响应 SHALL 包含 managerId(UUID)、mtServerId、serverAddress、managerLogin、encryptedPassword、tenantId
+
+### REQ-3: C++ 中间件 TenantApiClient 扩展
+
+**User Story:** 作为 C++ 中间件开发者，我需要扩展现有的 TenantApiClient，以便启动时调用 Tenant API 获取经理账号列表。
+
+#### Acceptance Criteria
+
+1. WHEN 扩展 TenantApiClient THEN SHALL 新增 `getManagers(middlewareId)` 方法
+2. WHEN 调用 getManagers THEN SHALL 向 `GET /internal/managers?middlewareId=xxx` 发送请求
+3. WHEN 发送请求 THEN SHALL 携带 `X-Internal-Secret` 头进行内部认证
+4. WHEN 收到响应 THEN SHALL 解析 JSON 返回经理账号列表（managerId、mtServerId、serverAddress、managerLogin、encryptedPassword、tenantId）
+5. IF 认证失败(401) THEN SHALL 记录错误日志并抛出异常
+6. IF 网络错误 THEN SHALL 支持重试机制（最多3次，指数退避）
+
+### REQ-4: C++ 中间件新增 ManagerConnectionPool 组件
+
+**User Story:** 作为系统架构师，我希望 C++ 中间件新增独立的 ManagerConnectionPool 组件，以管理预建立的经理账号连接。
+
+#### Acceptance Criteria
+
+1. WHEN 设计 ManagerConnectionPool THEN SHALL 创建独立的类/模块，与现有 ManagerSessionPool 并行
+2. WHEN 实现 ManagerConnectionPool THEN SHALL 使用 managerId (UUID) 作为连接池的 key（HashMap 实现）
+3. WHEN 实现连接存储 THEN SHALL 包含 managerId、tenantId、mtServerId、MT5 连接句柄、连接状态等信息
+4. WHEN 实现 ManagerConnectionPool THEN SHALL 提供 add()、remove()、get()、reconnect()、getStatus() 等方法
+5. IF 两个不同服务器上存在相同的 managerLogin THEN 系统 SHALL 能够通过 managerId 正确区分并维护独立的连接
+6. WHEN 查找连接 THEN 中间件 SHALL 根据 managerId 而非 managerLogin 进行查找
+
+### REQ-5: Token 安全性改进
+
+**User Story:** 作为安全工程师，我希望 Token 中不暴露 managerLogin、服务器地址等敏感信息，以提高系统安全性。
+
+#### Acceptance Criteria
+
+1. WHEN 生成 API Key Access Token THEN Token 中 SHALL 只包含 managerId、tenantId、apiKeyId，不包含 managerLogin、serverId、platformType
+2. WHEN 生成 Service Token (Tenant API → 中间件) THEN Token 中 SHALL 只包含 managerId、tenantId、apiKeyId
+3. WHEN 中间件验证 Token THEN 中间件 SHALL 根据 managerId 从连接池查找已建立的连接
+4. IF Token 中的 managerId 在连接池中不存在 THEN 中间件 SHALL 返回 404 错误
+
+### REQ-6: 连接池动态更新
+
+**User Story:** 作为系统管理员，我希望在新增、删除或修改经理账号时，连接池能够动态更新，无需重启中间件。
+
+#### Acceptance Criteria
+
+1. WHEN Tenant API 创建新的经理账号 THEN Tenant API SHALL 通知中间件建立新连接
+2. WHEN Tenant API 删除经理账号 THEN Tenant API SHALL 通知中间件断开并移除连接
+3. WHEN Tenant API 修改经理账号密码 THEN Tenant API SHALL 通知中间件重新连接
+4. WHEN 收到连接池更新通知 THEN 中间件 SHALL 执行相应操作并返回操作结果
+
+### REQ-7: 连接保活与自动重连
+
+**User Story:** 作为系统运维人员，我希望连接池能够自动检测断开的连接并重连，以保证服务可用性。
+
+#### Acceptance Criteria
+
+1. WHEN 连接池运行中 THEN 中间件 SHALL 定期（每30秒）检查所有连接的健康状态
+2. IF 检测到连接断开 THEN 中间件 SHALL 自动尝试重新连接
+3. IF 重连失败 THEN 中间件 SHALL 按指数退避策略重试（最大间隔5分钟）
+4. WHEN 连接状态变化 THEN 中间件 SHALL 更新健康监控指标
+
+### REQ-8: 请求路由优化
+
+**User Story:** 作为第三方应用开发者，我希望请求能够快速路由到正确的已建立连接，无需等待连接建立。
+
+#### Acceptance Criteria
+
+1. WHEN 收到带有有效 Token 的请求 THEN 中间件 SHALL 在 10ms 内完成连接查找
+2. WHEN 找到连接 THEN 中间件 SHALL 直接使用该连接执行业务操作
+3. IF 连接正忙 THEN 中间件 SHALL 将请求加入队列等待（已有机制）
+4. IF 连接不存在 THEN 中间件 SHALL 返回 404 错误，提示连接未建立
+
+### REQ-9: 现有 Token Payload 接口修改
+
+**User Story:** 作为开发者，我需要修改现有的 Token Payload 接口，移除敏感字段，确保 Token 安全。
+
+#### Acceptance Criteria
+
+1. WHEN 修改 `ApiKeyTokenPayload` 接口 THEN SHALL 移除 `managerLogin`、`serverId`、`platformType`、`middlewareUrl`、`middlewareId` 字段
+2. WHEN 修改 `ApiKeyTokenPayload` 接口 THEN SHALL 保留 `type`、`managerId`、`tenantId`、`apiKeyId`、`iat`、`exp` 字段
+3. WHEN 修改 `MtManagerApiKeyService.authenticate()` THEN SHALL 生成简化后的 Token
+4. WHEN 修改 `MtManagerApiKeyService.refreshAccessToken()` THEN SHALL 生成简化后的 Token
+5. WHEN 修改 `buildContextFromApiKey()` 函数 THEN SHALL 适配新的 Token 结构（需要从数据库补充缺失字段）
+
+### REQ-10: 现有 Service Token 修改
+
+**User Story:** 作为开发者，我需要修改 Tenant API 生成的 Service Token，使其只包含 managerId。
+
+#### Acceptance Criteria
+
+1. WHEN 修改 `ServiceTokenService` THEN SHALL 生成只包含 `managerId`、`tenantId`、`apiKeyId` 的 Service Token
+2. WHEN 修改 `MiddlewareAuthService.getAuthHeaders()` THEN SHALL 不再从数据库获取经理账号密码（中间件已预连接）
+3. WHEN 修改 Service Token 生成逻辑 THEN SHALL 移除 `managerLogin`、`encryptedPassword` 字段
+
+### REQ-11: C++ 中间件连接池管理接口
+
+**User Story:** 作为 Tenant API，我需要调用 C++ 中间件的内部接口来管理连接池。
+
+#### Acceptance Criteria
+
+1. WHEN Tenant API 调用 `POST /internal/pool/connect` THEN 中间件 SHALL 验证 X-Internal-Secret 并添加新连接
+2. WHEN Tenant API 调用 `POST /internal/pool/disconnect` THEN 中间件 SHALL 验证 X-Internal-Secret 并移除连接
+3. WHEN Tenant API 调用 `POST /internal/pool/reconnect` THEN 中间件 SHALL 验证 X-Internal-Secret 并重新连接
+4. WHEN Tenant API 调用 `GET /internal/pool/status` THEN 中间件 SHALL 返回连接池状态信息
+5. WHEN 接口调用成功 THEN 中间件 SHALL 返回操作结果和受影响的连接信息
+
+### REQ-12: C++ 中间件 Token 验证逻辑修改
+
+**User Story:** 作为开发者，我需要修改 C++ 中间件的 Token 验证逻辑，使用 managerId 查找连接池。
+
+#### Acceptance Criteria
+
+1. WHEN 修改 `ServiceTokenValidator` THEN SHALL 从 Token 提取 `managerId` 而非 `managerLogin`
+2. WHEN 修改 `ServiceTokenValidator` THEN SHALL 移除密码解密逻辑（连接已预建立）
+3. WHEN 修改 `AuthContext` 结构 THEN SHALL 使用 `managerId` 替代 `managerLogin` 作为主标识
+4. WHEN Token 验证通过 THEN 中间件 SHALL 根据 `managerId` 从连接池获取 MT5 连接
+5. IF 连接池中不存在该 `managerId` THEN 中间件 SHALL 返回 404 错误
+
+### REQ-13: RequestContext 接口适配
+
+**User Story:** 作为开发者，我需要更新 RequestContext 接口以适配新的 Token 结构。
+
+#### Acceptance Criteria
+
+1. WHEN 修改 `RequestContext` 接口 THEN SHALL 确保 `managerId` 为必填字段
+2. WHEN 修改 `buildContextFromApiKey()` 函数 THEN SHALL 根据 `managerId` 从数据库查询 `serverId`、`platformType` 等信息
+3. WHEN 业务服务使用 `RequestContext` THEN SHALL 能够获取完整的上下文信息（即使 Token 中不包含）
+4. WHEN 修改 `ApiKeyAuthGuard` THEN SHALL 根据 `managerId` 补充 RequestContext 缺失字段
+
+### REQ-14: 全链路测试和切换
+
+**User Story:** 作为 QA 工程师，我需要完整的测试策略和切换方案，以确保新架构平稳上线。
+
+#### Acceptance Criteria
+
+1. WHEN 进行单元测试 THEN SHALL 覆盖 ManagerConnectionPool 的所有方法（add, remove, get, reconnect, getStatus）
+2. WHEN 进行集成测试 THEN SHALL 验证 Tenant API → C++ 中间件的内部接口调用
+3. WHEN 进行集成测试 THEN SHALL 验证中间件启动时从 Tenant API 拉取经理账号列表并建立连接
+4. WHEN 进行端到端测试 THEN SHALL 验证第三方应用使用新 Token 格式的完整业务流程
+5. WHEN 进行性能测试 THEN SHALL 对比预连接模式与按需连接模式的响应延迟
+6. WHEN 制定切换方案 THEN SHALL 支持灰度发布，可按租户/中间件实例逐步切换
+7. WHEN 制定回滚方案 THEN SHALL 支持快速回退到按需连接模式（配置开关）
+8. WHEN 上线前 THEN SHALL 提供完整的监控指标和告警配置
+
+## Non-Functional Requirements
+
+### Code Architecture and Modularity
+- **单一职责原则**: ManagerConnectionPool 只负责连接池管理，不处理业务逻辑
+- **模块化设计**: 新增的连接池组件与现有 ManagerSessionPool 并行，可独立测试
+- **清晰接口**: 定义明确的连接池操作接口 (add, remove, reconnect, get)
+- **向后兼容**: 现有的 Session 模式继续支持，连接池模式为新增能力
+
+### Performance
+- **启动时间**: 连接池初始化不应阻塞中间件启动，采用异步连接
+- **连接查找**: O(1) 时间复杂度，使用 HashMap 实现
+- **内存占用**: 每个连接约 1MB，支持 1000+ 连接
+- **响应延迟**: 使用预建立连接时，响应延迟降低 80% 以上
+
+### Security
+- **Token 最小化**: Token 只包含必要的标识信息（UUID）
+- **内部通信认证**: 所有内部接口使用 X-Internal-Secret 认证
+- **密码加密存储**: 经理账号密码使用 AES-256-GCM 加密
+- **日志脱敏**: 日志中不记录密码、完整 Token 等敏感信息
+
+### Reliability
+- **故障隔离**: 单个连接失败不影响其他连接
+- **自动恢复**: 断开的连接自动重连
+- **熔断保护**: 连续失败触发熔断，防止雪崩
+- **优雅降级**: 连接池不可用时，可回退到按需连接模式
+
+### Usability
+- **运维友好**: 提供连接池状态查询接口
+- **监控集成**: 暴露 Prometheus 指标
+- **日志完善**: 关键操作记录详细日志
+- **错误信息清晰**: 返回明确的错误码和消息

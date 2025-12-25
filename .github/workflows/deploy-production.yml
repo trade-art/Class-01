@@ -1,0 +1,549 @@
+name: Deploy to Production
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag to deploy (e.g., v1.0.0)'
+        required: true
+        type: string
+      skip_approval:
+        description: 'Skip manual approval (emergency only)'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/mt5-platform
+  PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  # Validate release
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            echo "value=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "value=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate version format
+        run: |
+          VERSION="${{ steps.version.outputs.value }}"
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+            echo "❌ Invalid version format: $VERSION"
+            echo "Expected format: v1.0.0 or v1.0.0-beta"
+            exit 1
+          fi
+          echo "✅ Version format valid: $VERSION"
+
+      - name: Verify images exist
+        run: |
+          VERSION="${{ steps.version.outputs.value }}"
+
+          # Check if images exist in registry
+          for service in tenant-api platform-service tenant-console platform-console; do
+            IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${service}:${VERSION}"
+            if ! docker manifest inspect $IMAGE > /dev/null 2>&1; then
+              echo "⚠️ Image not found: $IMAGE"
+              echo "Building images first..."
+            else
+              echo "✅ Image exists: $IMAGE"
+            fi
+          done
+
+  # Build images if needed
+  build:
+    name: Build Images
+    needs: validate
+    uses: ./.github/workflows/docker-build.yml
+    permissions:
+      contents: read
+      packages: write
+    secrets: inherit
+
+  # Manual approval gate
+  approval:
+    name: Manual Approval
+    needs: [validate, build]
+    if: github.event.inputs.skip_approval != 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: production-approval
+    steps:
+      - name: Approval received
+        run: |
+          echo "✅ Manual approval received for version: ${{ needs.validate.outputs.version }}"
+          echo "Proceeding with production deployment..."
+
+  # Database migration
+  migrate:
+    name: Database Migration
+    needs: [validate, build, approval]
+    if: always() && needs.build.result == 'success' && (needs.approval.result == 'success' || github.event.inputs.skip_approval == 'true')
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      backup_file: ${{ steps.backup.outputs.backup_file }}
+      migration_applied: ${{ steps.migrate.outputs.applied }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.version }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Check pending migrations
+        id: check-migrations
+        run: |
+          cd apps/platform-service
+          STATUS=$(npx prisma migrate status 2>&1 || true)
+          echo "$STATUS"
+          if echo "$STATUS" | grep -q "Database schema is up to date"; then
+            echo "has_pending=false" >> $GITHUB_OUTPUT
+            echo "✅ No pending migrations"
+          else
+            echo "has_pending=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Pending migrations detected"
+          fi
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+
+      - name: Create pre-migration backup
+        id: backup
+        if: steps.check-migrations.outputs.has_pending == 'true'
+        run: |
+          echo "📦 Creating pre-migration backup for PRODUCTION..."
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          BACKUP_NAME="production_pre_migration_${TIMESTAMP}"
+
+          # Create backup directory
+          mkdir -p backups/db
+
+          # Run backup using pg_dump directly
+          export PGPASSWORD="${DB_PASSWORD}"
+          pg_dump -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" \
+            -F c -b -v --no-owner --no-acl \
+            -f "backups/db/${BACKUP_NAME}.dump" 2>&1 || {
+              echo "⚠️ pg_dump failed, continuing without backup..."
+              echo "backup_file=" >> $GITHUB_OUTPUT
+              exit 0
+            }
+
+          # Compress if dump succeeded
+          if [ -f "backups/db/${BACKUP_NAME}.dump" ]; then
+            gzip "backups/db/${BACKUP_NAME}.dump"
+            echo "backup_file=backups/db/${BACKUP_NAME}.dump.gz" >> $GITHUB_OUTPUT
+            echo "✅ Backup created: ${BACKUP_NAME}.dump.gz"
+          fi
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          DB_HOST: ${{ secrets.PRODUCTION_DB_HOST }}
+          DB_PORT: ${{ secrets.PRODUCTION_DB_PORT }}
+          DB_USER: ${{ secrets.PRODUCTION_DB_USER }}
+          DB_PASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
+          DB_NAME: ${{ secrets.PRODUCTION_DB_NAME }}
+        continue-on-error: true
+
+      - name: Upload backup artifact
+        if: steps.backup.outputs.backup_file != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ needs.validate.outputs.version }}
+          path: backups/db/
+          retention-days: 30
+
+      - name: Run migrations
+        id: migrate
+        run: |
+          cd apps/platform-service
+          echo "🚀 Running Prisma migrations for PRODUCTION..."
+
+          # Deploy migrations
+          if npx prisma migrate deploy; then
+            echo "applied=true" >> $GITHUB_OUTPUT
+            echo "✅ Migrations applied successfully"
+          else
+            echo "applied=false" >> $GITHUB_OUTPUT
+            echo "❌ Migration failed"
+            exit 1
+          fi
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+
+      - name: Regenerate Prisma client
+        run: |
+          cd apps/platform-service
+          npx prisma generate
+
+      - name: Verify migrations
+        run: |
+          cd apps/platform-service
+          echo "✅ Verifying migration status..."
+          npx prisma migrate status
+
+          # Run verification checks
+          echo "🔍 Running data integrity verification..."
+          npx prisma db execute --stdin <<< "
+            SELECT
+              (SELECT COUNT(*) FROM tenants) as tenant_count,
+              (SELECT COUNT(*) FROM tenant_admins) as admin_count,
+              (SELECT COUNT(*) FROM middleware_instances) as instance_count;
+          " || true
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+
+      - name: Upload migration logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: migration-logs-production-${{ needs.validate.outputs.version }}
+          path: |
+            logs/migrations/
+            logs/verification/
+          retention-days: 30
+
+  # Deploy to production
+  deploy:
+    name: Deploy
+    needs: [validate, migrate]
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://mt5-platform.example.com
+    outputs:
+      rollback_version: ${{ steps.deploy.outputs.rollback_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PRODUCTION_SSH_KEY }}
+
+      - name: Add host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ env.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy to production server
+        id: deploy
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+
+          # Copy deployment files
+          scp -r docker-compose.yml docker-compose.prod.yml docker/ ${{ secrets.PRODUCTION_USER }}@${{ env.PRODUCTION_HOST }}:~/mt5-platform/
+
+          # Get current version for rollback
+          CURRENT_VERSION=$(ssh ${{ secrets.PRODUCTION_USER }}@${{ env.PRODUCTION_HOST }} "docker ps --format '{{.Image}}' | grep tenant-api | head -1 | cut -d: -f2" || echo "unknown")
+          echo "rollback_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "📌 Current version (for rollback): $CURRENT_VERSION"
+
+          # Deploy on production server with rolling update
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ env.PRODUCTION_HOST }} << ENDSSH
+            cd ~/mt5-platform
+
+            export APP_VERSION=$VERSION
+
+            echo "🚀 Starting rolling deployment of version: $VERSION"
+
+            # Pull new images
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+
+            # Rolling update for tenant-api (one by one)
+            echo "📦 Updating tenant-api..."
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps --scale tenant-api=3 tenant-api
+            sleep 30  # Wait for new instances
+
+            # Health check for new instances
+            for i in {1..10}; do
+              if docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T tenant-api curl -sf http://localhost:3000/health/ready > /dev/null; then
+                echo "✅ tenant-api health check passed"
+                break
+              fi
+              echo "Waiting for tenant-api to be ready... (\$i/10)"
+              sleep 5
+            done
+
+            # Scale back down
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps --scale tenant-api=2 tenant-api
+
+            # Repeat for platform-service
+            echo "📦 Updating platform-service..."
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps --scale platform-service=3 platform-service
+            sleep 30
+
+            for i in {1..10}; do
+              if docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T platform-service curl -sf http://localhost:3001/health/ready > /dev/null; then
+                echo "✅ platform-service health check passed"
+                break
+              fi
+              echo "Waiting for platform-service to be ready... (\$i/10)"
+              sleep 5
+            done
+
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps --scale platform-service=2 platform-service
+
+            # Update frontend services
+            echo "📦 Updating frontend services..."
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile production up -d tenant-console-prod platform-console-prod
+
+            # Final status
+            echo "📊 Deployment status:"
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+          ENDSSH
+
+      - name: Verify deployment
+        run: |
+          echo "🔍 Verifying production deployment..."
+
+          for i in {1..15}; do
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://mt5-platform.example.com/health" || echo "000")
+            if [ "$HTTP_STATUS" == "200" ]; then
+              echo "✅ Production health check passed (HTTP $HTTP_STATUS)"
+              exit 0
+            fi
+            echo "Waiting for production to be ready... ($i/15) - HTTP $HTTP_STATUS"
+            sleep 10
+          done
+
+          echo "❌ Production health check failed"
+          exit 1
+
+  # Smoke tests
+  smoke-tests:
+    name: Smoke Tests
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run smoke tests
+        run: |
+          echo "🧪 Running smoke tests..."
+
+          # Test health endpoint
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://mt5-platform.example.com/health")
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "❌ Health endpoint failed: $HTTP_STATUS"
+            exit 1
+          fi
+          echo "✅ Health endpoint: OK"
+
+          # Test ready endpoint
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://mt5-platform.example.com/ready")
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "❌ Ready endpoint failed: $HTTP_STATUS"
+            exit 1
+          fi
+          echo "✅ Ready endpoint: OK"
+
+          # Test API endpoint
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://mt5-platform.example.com/api/v1/")
+          if [ "$HTTP_STATUS" -ge 500 ]; then
+            echo "❌ API endpoint error: $HTTP_STATUS"
+            exit 1
+          fi
+          echo "✅ API endpoint: OK"
+
+          echo "✅ All smoke tests passed"
+
+  # Notify on completion
+  notify:
+    name: Notify
+    needs: [validate, deploy, smoke-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "Production Deployment ${{ needs.deploy.result == 'success' && needs.smoke-tests.result == 'success' && '✅ Succeeded' || '❌ Failed' }}",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🚀 MT5 Platform - Production Deployment"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Status:*\n${{ needs.deploy.result == 'success' && needs.smoke-tests.result == 'success' && '✅ Success' || '❌ Failed' }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Version:*\n${{ needs.validate.outputs.version }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Smoke Tests:*\n${{ needs.smoke-tests.result }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Deployed By:*\n${{ github.actor }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Workflow"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    },
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Production"
+                      },
+                      "url": "https://mt5-platform.example.com"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        continue-on-error: true
+
+  # Rollback on failure
+  rollback:
+    name: Rollback
+    needs: [validate, deploy, smoke-tests]
+    if: failure() && needs.deploy.result == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PRODUCTION_SSH_KEY }}
+
+      - name: Add host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ env.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Automatic rollback
+        run: |
+          ROLLBACK_VERSION="${{ needs.deploy.outputs.rollback_version }}"
+
+          if [ "$ROLLBACK_VERSION" == "unknown" ] || [ -z "$ROLLBACK_VERSION" ]; then
+            echo "⚠️ No previous version available for rollback"
+            echo "Manual intervention required!"
+            exit 1
+          fi
+
+          echo "🔄 Rolling back to version: $ROLLBACK_VERSION"
+
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ env.PRODUCTION_HOST }} << ENDSSH
+            cd ~/mt5-platform
+
+            export APP_VERSION=$ROLLBACK_VERSION
+
+            echo "🔄 Starting rollback to version: $ROLLBACK_VERSION"
+
+            # Rollback all services
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+            # Wait for services
+            sleep 30
+
+            # Verify rollback
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+          ENDSSH
+
+          echo "✅ Rollback completed to version: $ROLLBACK_VERSION"
+
+      - name: Notify rollback
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "🚨 Production Rollback Executed",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🚨 Production Rollback"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Deployment of version *${{ needs.validate.outputs.version }}* failed smoke tests.\n\nAutomatically rolled back to: *${{ needs.deploy.outputs.rollback_version }}*\n\nPlease investigate the issue."
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Workflow"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        continue-on-error: true

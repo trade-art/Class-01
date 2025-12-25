@@ -1,12 +1,18 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, Inject, forwardRef, Optional } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { TradingPlatformAdapter } from './trading-platform.adapter';
 import { MT5Adapter } from './mt5.adapter';
+import { MT4Adapter } from './mt4.adapter';
 import {
   PlatformType,
   AdapterConfig,
   MtServerConfig,
 } from './types';
+import {
+  ServiceTokenService,
+  GenerateTokenRequest,
+  GeneratePoolModeTokenRequest,
+} from '../../auth/services/service-token.service';
 
 /**
  * 适配器实例缓存键
@@ -41,7 +47,7 @@ export interface CircuitBreakerState {
  * 负责创建和缓存不同平台的适配器实例
  */
 @Injectable()
-export class AdapterFactory {
+export class AdapterFactory implements OnModuleDestroy {
   private readonly logger = new Logger(AdapterFactory.name);
   private readonly adapters = new Map<string, CachedAdapter>();
   private readonly circuitBreakers = new Map<string, CircuitBreakerState>();
@@ -58,7 +64,12 @@ export class AdapterFactory {
 
   private cleanupTimer?: NodeJS.Timeout;
 
-  constructor(private readonly httpService: HttpService) {
+  constructor(
+    private readonly httpService: HttpService,
+    @Optional()
+    @Inject(forwardRef(() => ServiceTokenService))
+    private readonly serviceTokenService?: ServiceTokenService,
+  ) {
     // 启动定期清理
     this.startCleanupTimer();
   }
@@ -102,6 +113,11 @@ export class AdapterFactory {
 
   /**
    * 创建适配器实例
+   *
+   * 使用 ServiceToken 模式进行认证:
+   * - 生成包含加密 Manager 凭证的 Service Token
+   * - 将 Token 配置到 AdapterConfig 中
+   * - 适配器构造函数自动初始化认证状态
    */
   private createAdapter(serverConfig: MtServerConfig): TradingPlatformAdapter {
     const adapterConfig: AdapterConfig = {
@@ -111,14 +127,71 @@ export class AdapterFactory {
       retryDelay: 1000,
     };
 
+    // 如果 ServiceTokenService 可用，生成 ServiceToken 用于认证
+    if (this.serviceTokenService) {
+      try {
+        let tokenResponse;
+
+        // 优先使用 Pool Mode Token (当 managerId 存在时)
+        // Pool Mode Token 使用连接池中的现有连接，避免创建新连接的问题
+        if (serverConfig.managerId) {
+          const poolModeRequest: GeneratePoolModeTokenRequest = {
+            managerId: serverConfig.managerId,
+            tenantId: serverConfig.tenantId,
+            scopes: ['*'],
+          };
+          tokenResponse = this.serviceTokenService.generatePoolModeToken(poolModeRequest);
+          this.logger.log(
+            `为适配器生成 Pool Mode Token: tenantId=${serverConfig.tenantId}, managerId=${serverConfig.managerId}`,
+          );
+        } else {
+          // 回退到 Traditional Token (当 managerId 不存在时)
+          const tokenRequest: GenerateTokenRequest = {
+            tenantId: serverConfig.tenantId,
+            instanceId: `inst_${serverConfig.tenantId}_${serverConfig.serverId}`,
+            serverId: serverConfig.serverId,
+            managerLogin: serverConfig.managerLogin,
+            managerPassword: serverConfig.managerPassword,
+            scopes: ['*'],
+          };
+          tokenResponse = this.serviceTokenService.generateToken(tokenRequest);
+          this.logger.warn(
+            `managerId 不存在，使用 Traditional Token (可能无法使用连接池): tenantId=${serverConfig.tenantId}, serverId=${serverConfig.serverId}`,
+          );
+        }
+
+        // 设置 ServiceToken 配置
+        adapterConfig.serviceToken = {
+          token: tokenResponse.token,
+          tokenType: tokenResponse.tokenType,
+          expiresAt: tokenResponse.expiresAt,
+        };
+
+        // 设置认证头 (包含完整的 Service Token)
+        adapterConfig.authHeaders = {
+          'Content-Type': 'application/json',
+          Authorization: `${tokenResponse.tokenType} ${tokenResponse.token}`,
+          'X-Tenant-Id': serverConfig.tenantId,
+          'X-Server-Id': serverConfig.serverId,
+          'X-Server-Address': serverConfig.serverAddress,
+        };
+      } catch (error) {
+        this.logger.warn(
+          `生成 ServiceToken 失败，适配器将无法认证: ${error}`,
+        );
+      }
+    } else {
+      this.logger.warn(
+        'ServiceTokenService 不可用，适配器将无法使用 ServiceToken 认证',
+      );
+    }
+
     switch (serverConfig.platformType) {
       case PlatformType.MT5:
         return new MT5Adapter(this.httpService, adapterConfig);
 
       case PlatformType.MT4:
-        // MT4 适配器将在未来实现
-        // return new MT4Adapter(this.httpService, adapterConfig);
-        throw new Error('MT4 adapter not implemented yet');
+        return new MT4Adapter(this.httpService, adapterConfig);
 
       default:
         throw new Error(`Unsupported platform type: ${serverConfig.platformType}`);
@@ -255,6 +328,14 @@ export class AdapterFactory {
       clearInterval(this.cleanupTimer);
       this.cleanupTimer = undefined;
     }
+  }
+
+  /**
+   * NestJS 模块销毁时调用
+   * 确保定时器和资源被正确清理
+   */
+  async onModuleDestroy(): Promise<void> {
+    await this.destroy();
   }
 
   /**

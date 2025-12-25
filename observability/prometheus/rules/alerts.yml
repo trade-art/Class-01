@@ -1,0 +1,276 @@
+# Prometheus 告警规则
+# MT5 Platform 告警定义
+
+groups:
+  # ===========================================
+  # 应用告警
+  # ===========================================
+  - name: application-alerts
+    interval: 30s
+    rules:
+      # 服务不可用
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "服务 {{ $labels.job }} 不可用"
+          description: "服务 {{ $labels.job }} 在实例 {{ $labels.instance }} 上已停止响应超过 1 分钟"
+
+      # 高错误率
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+          /
+          sum(rate(http_requests_total[5m])) by (service) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          category: business
+        annotations:
+          summary: "服务 {{ $labels.service }} 错误率过高"
+          description: "服务 {{ $labels.service }} 的 5xx 错误率超过 5%，当前值: {{ $value | printf \"%.2f\" }}%"
+
+      # 慢响应
+      - alert: SlowResponseTime
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)) > 2
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "服务 {{ $labels.service }} 响应时间过慢"
+          description: "服务 {{ $labels.service }} 的 P95 响应时间超过 2 秒，当前值: {{ $value | printf \"%.2f\" }}s"
+
+      # 高请求延迟
+      - alert: HighRequestLatency
+        expr: |
+          histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)) > 5
+        for: 5m
+        labels:
+          severity: critical
+          category: performance
+        annotations:
+          summary: "服务 {{ $labels.service }} 请求延迟过高"
+          description: "服务 {{ $labels.service }} 的 P99 请求延迟超过 5 秒，当前值: {{ $value | printf \"%.2f\" }}s"
+
+  # ===========================================
+  # 安全告警
+  # ===========================================
+  - name: security-alerts
+    interval: 30s
+    rules:
+      # 频繁登录失败
+      - alert: FrequentLoginFailures
+        expr: |
+          sum(increase(auth_login_failures_total[5m])) by (tenant_id) > 10
+        for: 2m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "租户 {{ $labels.tenant_id }} 频繁登录失败"
+          description: "租户 {{ $labels.tenant_id }} 在 5 分钟内登录失败 {{ $value }} 次，可能存在暴力破解攻击"
+
+      # 可疑的高流量
+      - alert: SuspiciousHighTraffic
+        expr: |
+          sum(rate(http_requests_total[5m])) by (client_ip) > 100
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "IP {{ $labels.client_ip }} 请求频率异常"
+          description: "IP {{ $labels.client_ip }} 的请求频率超过 100 req/s，可能存在 DDoS 攻击"
+
+      # 账户锁定
+      - alert: AccountLocked
+        expr: |
+          increase(account_lockouts_total[1h]) > 5
+        for: 0m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "1 小时内多个账户被锁定"
+          description: "在过去 1 小时内有 {{ $value }} 个账户被锁定，需要关注"
+
+      # API 密钥泄露尝试
+      - alert: PotentialAPIKeyLeak
+        expr: |
+          increase(api_key_validation_failures_total[5m]) > 20
+        for: 2m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "可能存在 API 密钥泄露尝试"
+          description: "检测到大量 API 密钥验证失败，可能存在密钥被泄露或暴力破解尝试"
+
+  # ===========================================
+  # 基础设施告警
+  # ===========================================
+  - name: infrastructure-alerts
+    interval: 30s
+    rules:
+      # CPU 使用率过高
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "实例 {{ $labels.instance }} CPU 使用率过高"
+          description: "实例 {{ $labels.instance }} 的 CPU 使用率超过 80%，当前值: {{ $value | printf \"%.2f\" }}%"
+
+      # 内存使用率过高
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "实例 {{ $labels.instance }} 内存使用率过高"
+          description: "实例 {{ $labels.instance }} 的内存使用率超过 85%，当前值: {{ $value | printf \"%.2f\" }}%"
+
+      # 磁盘空间不足
+      - alert: LowDiskSpace
+        expr: |
+          (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "实例 {{ $labels.instance }} 磁盘空间不足"
+          description: "实例 {{ $labels.instance }} 的磁盘使用率超过 80%，当前值: {{ $value | printf \"%.2f\" }}%"
+
+      # 磁盘空间紧急
+      - alert: CriticalDiskSpace
+        expr: |
+          (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) * 100 > 95
+        for: 5m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "实例 {{ $labels.instance }} 磁盘空间紧急"
+          description: "实例 {{ $labels.instance }} 的磁盘使用率超过 95%，需要立即处理！"
+
+  # ===========================================
+  # 数据库告警
+  # ===========================================
+  - name: database-alerts
+    interval: 30s
+    rules:
+      # PostgreSQL 连接数过高
+      - alert: PostgreSQLHighConnections
+        expr: |
+          pg_stat_activity_count / pg_settings_max_connections * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "PostgreSQL 连接数过高"
+          description: "PostgreSQL 连接数已使用 {{ $value | printf \"%.2f\" }}%，接近最大限制"
+
+      # PostgreSQL 慢查询
+      - alert: PostgreSQLSlowQueries
+        expr: |
+          rate(pg_stat_statements_seconds_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "PostgreSQL 存在慢查询"
+          description: "PostgreSQL 平均查询时间超过 1 秒"
+
+      # Redis 内存使用率过高
+      - alert: RedisHighMemoryUsage
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "Redis 内存使用率过高"
+          description: "Redis 内存使用率超过 80%，当前值: {{ $value | printf \"%.2f\" }}%"
+
+      # Redis 连接数过高
+      - alert: RedisHighConnections
+        expr: |
+          redis_connected_clients > 500
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "Redis 连接数过高"
+          description: "Redis 当前连接数: {{ $value }}，超过警戒阈值 500"
+
+  # ===========================================
+  # 业务告警
+  # ===========================================
+  - name: business-alerts
+    interval: 60s
+    rules:
+      # 订单处理失败率过高
+      - alert: HighOrderFailureRate
+        expr: |
+          sum(rate(order_processing_failures_total[10m]))
+          /
+          sum(rate(order_processing_total[10m])) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          category: business
+        annotations:
+          summary: "订单处理失败率过高"
+          description: "订单处理失败率超过 1%，当前值: {{ $value | printf \"%.2f\" }}%"
+
+      # 交易延迟过高
+      - alert: HighTradingLatency
+        expr: |
+          histogram_quantile(0.95, sum(rate(trading_execution_duration_seconds_bucket[5m])) by (le)) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          category: business
+        annotations:
+          summary: "交易执行延迟过高"
+          description: "交易执行 P95 延迟超过 500ms，当前值: {{ $value | printf \"%.3f\" }}s"
+
+      # MT5 中间件连接失败
+      - alert: MT5MiddlewareConnectionFailure
+        expr: |
+          sum(rate(mt5_connection_failures_total[5m])) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+          category: business
+        annotations:
+          summary: "MT5 中间件连接频繁失败"
+          description: "MT5 中间件连接失败率过高，可能影响交易功能"
+
+      # 租户配额即将用尽
+      - alert: TenantQuotaNearLimit
+        expr: |
+          tenant_resource_usage / tenant_resource_quota * 100 > 90
+        for: 10m
+        labels:
+          severity: warning
+          category: business
+        annotations:
+          summary: "租户 {{ $labels.tenant_id }} 配额即将用尽"
+          description: "租户 {{ $labels.tenant_id }} 的 {{ $labels.resource_type }} 配额使用率超过 90%"

@@ -54,19 +54,18 @@ function getOption(): EChartsOption {
 
   const seriesData: PieSeriesOption = {
     type: 'pie',
-    radius: props.donut ? ['40%', '70%'] : '70%',
-    center: ['50%', '55%'],
+    radius: props.donut ? ['40%', '65%'] : '65%',
+    center: ['50%', '45%'],
     data: props.data.map((item) => ({
       name: item.name,
       value: item.value,
       itemStyle: item.color ? { color: item.color } : undefined,
     })),
     label: {
-      color: textColor,
-      formatter: '{b}: {d}%',
+      show: false, // 隐藏标签，使用图例显示
     },
     labelLine: {
-      lineStyle: { color: textColor },
+      show: false,
     },
     emphasis: {
       itemStyle: {
@@ -91,8 +90,20 @@ function getOption(): EChartsOption {
       textStyle: { color: textColor },
     },
     legend: {
-      bottom: 0,
+      bottom: 10,
+      left: 'center',
+      orient: 'horizontal',
+      itemGap: 20,
       textStyle: { color: textColor },
+      formatter: (name: string) => {
+        const item = props.data.find((d) => d.name === name)
+        if (item) {
+          const total = props.data.reduce((sum, d) => sum + d.value, 0)
+          const percent = total > 0 ? ((item.value / total) * 100).toFixed(0) : 0
+          return `${name}: ${item.value} (${percent}%)`
+        }
+        return name
+      },
     },
     series: [seriesData],
   }

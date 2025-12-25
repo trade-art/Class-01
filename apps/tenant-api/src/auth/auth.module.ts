@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { ServiceTokenService } from './services/service-token.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
@@ -27,6 +28,7 @@ import { TenantGuard } from './guards/tenant.guard';
   controllers: [AuthController],
   providers: [
     AuthService,
+    ServiceTokenService,
     JwtStrategy,
     // 全局 JWT 认证守卫
     {
@@ -44,6 +46,6 @@ import { TenantGuard } from './guards/tenant.guard';
       useClass: TenantGuard,
     },
   ],
-  exports: [AuthService, JwtModule],
+  exports: [AuthService, ServiceTokenService, JwtModule],
 })
 export class AuthModule {}

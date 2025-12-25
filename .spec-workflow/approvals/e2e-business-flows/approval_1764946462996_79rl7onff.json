@@ -1,0 +1,12 @@
+{
+  "id": "approval_1764946462996_79rl7onff",
+  "title": "E2E Business Flows Requirements",
+  "filePath": ".spec-workflow/specs/e2e-business-flows/requirements.md",
+  "type": "document",
+  "status": "approved",
+  "createdAt": "2025-12-05T14:54:22.996Z",
+  "category": "spec",
+  "categoryName": "e2e-business-flows",
+  "response": "通过仪表板批准",
+  "respondedAt": "2025-12-05T14:54:52.076Z"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "approval_1764913810655_6sqzblv0z",
+  "title": "SaaS多租户架构设计文档 (含MT4兼容设计)",
+  "filePath": ".spec-workflow/specs/saas-multi-tenant-architecture/design.md",
+  "type": "document",
+  "status": "rejected",
+  "createdAt": "2025-12-05T05:50:10.655Z",
+  "category": "spec",
+  "categoryName": "saas-multi-tenant-architecture",
+  "response": "可能我刚才的描述有误，mt4中间件已经实现，我刚说的需要考虑到mt4中间件的接入是指我们的saas基础设施，也就是ts代码部份，c++部份不用修改，简单来说就是mt5中间件和mt4中间件是独立的两个程序",
+  "respondedAt": "2025-12-05T05:52:38.191Z"
+}

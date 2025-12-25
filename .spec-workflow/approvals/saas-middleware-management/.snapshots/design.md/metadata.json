@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/saas-middleware-management/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-09T04:35:25.969Z",
+      "trigger": "initial",
+      "approvalId": "approval_1765254925923_xqkmeoaf5",
+      "approvalTitle": "SaaS 中间件管理架构设计文档"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-09T04:36:28.223Z",
+      "trigger": "approved",
+      "approvalId": "approval_1765254925923_xqkmeoaf5",
+      "approvalTitle": "SaaS 中间件管理架构设计文档"
+    }
+  ]
+}

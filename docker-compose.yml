@@ -1,72 +1,281 @@
+# =============================================================================
+# MT5 Platform - Docker Compose Configuration
+# Development environment container orchestration
+# =============================================================================
+
 services:
+  # ===========================================================================
+  # Database Services
+  # ===========================================================================
+
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: mt5-platform-db
+    container_name: mt5-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: mt5admin
-      POSTGRES_PASSWORD: mt5platform2024
-      POSTGRES_DB: mt5_platform
+      POSTGRES_USER: ${POSTGRES_USER:-mt5admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mt5platform2024}
+      POSTGRES_DB: ${POSTGRES_DB:-mt5_platform}
       POSTGRES_HOST_AUTH_METHOD: md5
     ports:
-      - "5433:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mt5admin -d mt5_platform"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mt5admin} -d ${POSTGRES_DB:-mt5_platform}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    networks:
+      - mt5-backend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Redis for caching and sessions
   redis:
     image: redis:7-alpine
-    container_name: mt5-platform-redis
+    container_name: mt5-redis
     restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
     ports:
-      - "6380:6379"
+      - "${REDIS_PORT:-6380}:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis123}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    networks:
+      - mt5-backend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # Platform Service (Backend API)
-  platform-service:
-    image: node:20-slim
-    container_name: mt5-platform-service
-    working_dir: /app
+  # ===========================================================================
+  # Backend Services
+  # ===========================================================================
+
+  # Tenant API Service
+  tenant-api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.tenant-api
+    image: mt5-tenant-api:${APP_VERSION:-latest}
+    container_name: mt5-tenant-api
     restart: unless-stopped
     environment:
-      NODE_ENV: development
-      PORT: 3001
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
       API_PREFIX: api/v1
-      DATABASE_URL: postgresql://mt5admin:mt5platform2024@postgres:5432/mt5_platform?schema=platform
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mt5admin}:${POSTGRES_PASSWORD:-mt5platform2024}@postgres:5432/${POSTGRES_DB:-mt5_platform}?schema=tenant
+      # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: your-super-secret-jwt-key-change-in-production
-      JWT_EXPIRES_IN: 7d
-      JWT_REFRESH_SECRET: your-refresh-secret-key-change-in-production
-      JWT_REFRESH_EXPIRES_IN: 30d
-      CORS_ORIGINS: http://localhost:5173,http://localhost:3001
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
+      # JWT
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-in-production}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      # Middleware
+      MIDDLEWARE_PASSWORD_KEY: ${MIDDLEWARE_PASSWORD_KEY:-dev-middleware-key}
+      # CORS
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174}
+      # Observability
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      METRICS_ENABLED: ${METRICS_ENABLED:-true}
+      TRACING_ENABLED: ${TRACING_ENABLED:-true}
+      TEMPO_ENDPOINT: ${TEMPO_ENDPOINT:-http://tempo:4317}
     ports:
-      - "3001:3001"
-    volumes:
-      - ./apps/platform-service:/app
-      - platform_service_modules:/app/node_modules
-    command: sh -c "apt-get update && apt-get install -y openssl libssl-dev && npm install && npx prisma generate && npm run dev"
+      - "${TENANT_API_PORT:-3000}:3000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - mt5-backend
+      - mt5-frontend
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
 
+  # Platform Service
+  platform-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.platform-service
+    image: mt5-platform-service:${APP_VERSION:-latest}
+    container_name: mt5-platform-service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3001
+      API_PREFIX: api/v1
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mt5admin}:${POSTGRES_PASSWORD:-mt5platform2024}@postgres:5432/${POSTGRES_DB:-mt5_platform}?schema=platform
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
+      # JWT
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-in-production}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
+      # CORS
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174}
+      # Observability
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      METRICS_ENABLED: ${METRICS_ENABLED:-true}
+      TRACING_ENABLED: ${TRACING_ENABLED:-true}
+      TEMPO_ENDPOINT: ${TEMPO_ENDPOINT:-http://tempo:4317}
+    ports:
+      - "${PLATFORM_SERVICE_PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - mt5-backend
+      - mt5-frontend
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ===========================================================================
+  # Frontend Services (Development)
+  # ===========================================================================
+
+  # Tenant Console (Vue.js)
+  tenant-console:
+    image: node:20-alpine
+    container_name: mt5-tenant-console
+    working_dir: /app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000}
+    ports:
+      - "${TENANT_CONSOLE_PORT:-5173}:5173"
+    volumes:
+      - ./apps/tenant-console:/app
+      - tenant_console_modules:/app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - tenant-api
+    networks:
+      - mt5-frontend
+    profiles:
+      - frontend
+      - full
+
+  # Platform Console (Vue.js)
+  platform-console:
+    image: node:20-alpine
+    container_name: mt5-platform-console
+    working_dir: /app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3001}
+    ports:
+      - "${PLATFORM_CONSOLE_PORT:-5174}:5173"
+    volumes:
+      - ./apps/platform-console:/app
+      - platform_console_modules:/app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - platform-service
+    networks:
+      - mt5-frontend
+    profiles:
+      - frontend
+      - full
+
+  # ===========================================================================
+  # Gateway Service
+  # ===========================================================================
+
+  # Nginx Gateway (Optional - for local testing)
+  gateway:
+    image: nginx:alpine
+    container_name: mt5-gateway
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_HTTP_PORT:-80}:80"
+      - "${GATEWAY_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+      - gateway_logs:/var/log/nginx
+    depends_on:
+      - tenant-api
+      - platform-service
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/nginx-health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mt5-frontend
+    profiles:
+      - gateway
+      - full
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  mt5-backend:
+    driver: bridge
+    name: mt5-backend
+  mt5-frontend:
+    driver: bridge
+    name: mt5-frontend
+
+# =============================================================================
+# Volumes
+# =============================================================================
 volumes:
   postgres_data:
+    name: mt5-platform_postgres_data
+    external: true
   redis_data:
-  platform_service_modules:
+    name: mt5-platform_redis_data
+    external: true
+  gateway_logs:
+    name: mt5-gateway-logs
+  tenant_console_modules:
+    name: mt5-tenant-console-modules
+  platform_console_modules:
+    name: mt5-platform-console-modules

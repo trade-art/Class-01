@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/unified-connection-pool/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-18T15:36:13.924Z",
+      "trigger": "initial",
+      "approvalId": "approval_1766072173895_k1g0olw79",
+      "approvalTitle": "统一连接池架构 - 需求文档"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-18T15:45:13.830Z",
+      "trigger": "approved",
+      "approvalId": "approval_1766072654508_xohdhxej5",
+      "approvalTitle": "统一连接池架构 - 需求文档 (v3)"
+    }
+  ]
+}

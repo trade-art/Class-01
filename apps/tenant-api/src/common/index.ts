@@ -10,5 +10,8 @@ export * from './filters';
 // Interceptors
 export * from './interceptors';
 
+// Services
+export * from './services';
+
 // DTOs
 export * from './dto/pagination.dto';

@@ -9,7 +9,8 @@ export const validationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'production', 'test')
     .default('development'),
-  PORT: Joi.number().default(3002),
+  PORT: Joi.number().default(3200),
+  API_PREFIX: Joi.string().default('tenant'),
 
   // 数据库配置 (必需)
   DATABASE_URL: Joi.string().required().messages({

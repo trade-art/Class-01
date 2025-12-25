@@ -76,7 +76,13 @@ export class MockPrismaService {
   // TenantAdmin 操作
   tenantAdmin = {
     findUnique: jest.fn().mockImplementation(({ where, include }) => {
-      const admin = this.admins.find((a) => a.id === where.id) || null;
+      // 支持通过 id 或 email 查找
+      let admin = null;
+      if (where.id) {
+        admin = this.admins.find((a) => a.id === where.id) || null;
+      } else if (where.email) {
+        admin = this.admins.find((a) => a.email === where.email) || null;
+      }
       if (admin && include?.tenant) {
         return Promise.resolve({
           ...admin,
@@ -164,10 +170,30 @@ export class MockPrismaService {
 
   // ApiKey 操作
   apiKey = {
-    findMany: jest.fn().mockImplementation(({ where }) => {
-      let result = this.apiKeys;
+    findMany: jest.fn().mockImplementation(({ where, orderBy, skip, take }) => {
+      let result = [...this.apiKeys];
       if (where?.tenantId) {
         result = result.filter((k) => k.tenantId === where.tenantId);
+      }
+      if (where?.isActive !== undefined) {
+        result = result.filter((k) => k.isActive === where.isActive);
+      }
+      if (where?.revokedAt === null) {
+        result = result.filter((k) => k.revokedAt === null);
+      }
+      if (where?.revokedAt && where.revokedAt.not === null) {
+        result = result.filter((k) => k.revokedAt !== null);
+      }
+      if (where?.serverId) {
+        result = result.filter((k) => k.serverId === where.serverId);
+      }
+      // 排序
+      if (orderBy?.createdAt === 'desc') {
+        result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      }
+      // 分页
+      if (skip !== undefined && take !== undefined) {
+        result = result.slice(skip, skip + take);
       }
       return Promise.resolve(result);
     }),
@@ -175,19 +201,44 @@ export class MockPrismaService {
     findFirst: jest.fn().mockImplementation(({ where }) => {
       return Promise.resolve(
         this.apiKeys.find((k) => {
+          // 支持按 id 和 tenantId 查找
           if (where.id && where.tenantId) {
             return k.id === where.id && k.tenantId === where.tenantId;
+          }
+          // 支持按 hashedKey 查找 (用于验证)
+          if (where.hashedKey) {
+            return k.hashedKey === where.hashedKey;
           }
           return false;
         }) || null,
       );
     }),
 
+    count: jest.fn().mockImplementation(({ where }) => {
+      let result = this.apiKeys;
+      if (where?.tenantId) {
+        result = result.filter((k) => k.tenantId === where.tenantId);
+      }
+      if (where?.isActive !== undefined) {
+        result = result.filter((k) => k.isActive === where.isActive);
+      }
+      if (where?.revokedAt === null) {
+        result = result.filter((k) => k.revokedAt === null);
+      }
+      return Promise.resolve(result.length);
+    }),
+
     create: jest.fn().mockImplementation(({ data }) => {
       const newKey = {
         id: `key-${Date.now()}`,
+        usageCount: 0,
+        lastUsedAt: null,
+        lastUsedIp: null,
+        revokedAt: null,
+        revokedBy: null,
         ...data,
         createdAt: new Date(),
+        updatedAt: new Date(),
       };
       this.apiKeys.push(newKey);
       return Promise.resolve(newKey);
@@ -196,7 +247,11 @@ export class MockPrismaService {
     update: jest.fn().mockImplementation(({ where, data }) => {
       const index = this.apiKeys.findIndex((k) => k.id === where.id);
       if (index >= 0) {
-        this.apiKeys[index] = { ...this.apiKeys[index], ...data };
+        this.apiKeys[index] = {
+          ...this.apiKeys[index],
+          ...data,
+          updatedAt: new Date(),
+        };
         return Promise.resolve(this.apiKeys[index]);
       }
       return Promise.reject(new Error('ApiKey not found'));
@@ -450,6 +505,107 @@ export class MockPrismaService {
       return Promise.resolve(null);
     }),
   };
+
+  // IpBlacklist 操作 (用于 IpBlacklistService)
+  ipBlacklist = {
+    findFirst: jest.fn().mockResolvedValue(null),
+    findMany: jest.fn().mockResolvedValue([]),
+    create: jest.fn().mockImplementation(({ data }) => {
+      return Promise.resolve({
+        id: `blacklist-${Date.now()}`,
+        ...data,
+        createdAt: new Date(),
+      });
+    }),
+    update: jest.fn().mockImplementation(({ where, data }) => {
+      return Promise.resolve({
+        id: where.id,
+        ...data,
+        updatedAt: new Date(),
+      });
+    }),
+    delete: jest.fn().mockResolvedValue({ id: 'deleted' }),
+    deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    count: jest.fn().mockResolvedValue(0),
+  };
+
+  // LoginAttempt 操作 (用于登录尝试跟踪，防止账户锁定)
+  loginAttempt = {
+    findMany: jest.fn().mockResolvedValue([]), // 返回空数组表示没有失败尝试
+    findFirst: jest.fn().mockResolvedValue(null),
+    create: jest.fn().mockImplementation(({ data }) => {
+      return Promise.resolve({
+        id: `attempt-${Date.now()}`,
+        ...data,
+        createdAt: new Date(),
+      });
+    }),
+    deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    count: jest.fn().mockResolvedValue(0), // 返回 0 表示没有失败尝试
+  };
+
+  // AuditLog 操作 (用于审计日志)
+  auditLog = {
+    findMany: jest.fn().mockResolvedValue([]),
+    findFirst: jest.fn().mockResolvedValue(null),
+    create: jest.fn().mockImplementation(({ data }) => {
+      return Promise.resolve({
+        id: `audit-${Date.now()}`,
+        ...data,
+        createdAt: new Date(),
+      });
+    }),
+    count: jest.fn().mockResolvedValue(0),
+  };
+
+  // MtServer 操作 (用于 MtServerService)
+  mtServer = {
+    findFirst: jest.fn().mockImplementation(({ where }) => {
+      // 返回一个模拟的 MT 服务器
+      if (where?.tenantId) {
+        return Promise.resolve({
+          id: 'mt-server-test-001',
+          tenantId: where.tenantId,
+          name: 'Test MT Server',
+          platform: 'MT5',
+          host: 'localhost',
+          port: 443,
+          managerLogin: 1,
+          isDefault: true,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          _count: {
+            managers: 0,
+          },
+        });
+      }
+      return Promise.resolve(null);
+    }),
+    findMany: jest.fn().mockResolvedValue([]),
+    findUnique: jest.fn().mockResolvedValue(null),
+    create: jest.fn().mockImplementation(({ data }) => {
+      return Promise.resolve({
+        id: `mt-server-${Date.now()}`,
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }),
+    update: jest.fn().mockImplementation(({ where, data }) => {
+      return Promise.resolve({
+        id: where.id,
+        ...data,
+        updatedAt: new Date(),
+      });
+    }),
+    delete: jest.fn().mockResolvedValue({ id: 'deleted' }),
+    count: jest.fn().mockResolvedValue(0),
+  };
+
+  // Prisma 原始查询操作 (用于 HealthService)
+  $queryRaw = jest.fn().mockResolvedValue([{ '?column?': 1 }]);
+  $executeRaw = jest.fn().mockResolvedValue(1);
 
   // 重置所有 Mock 数据
   resetMocks() {

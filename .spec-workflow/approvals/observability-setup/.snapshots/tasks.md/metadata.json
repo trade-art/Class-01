@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/observability-setup/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-05T15:08:53.864Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764947333834_f4hobqd3a",
+      "approvalTitle": "P2: observability-setup Tasks (23 tasks)"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-05T15:09:12.168Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764947333834_f4hobqd3a",
+      "approvalTitle": "P2: observability-setup Tasks (23 tasks)"
+    }
+  ]
+}

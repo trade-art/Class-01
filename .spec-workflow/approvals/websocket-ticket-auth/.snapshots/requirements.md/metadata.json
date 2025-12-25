@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/websocket-ticket-auth/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-20T12:40:35.553Z",
+      "trigger": "initial",
+      "approvalId": "approval_1766234435482_6tmvge0bx",
+      "approvalTitle": "WebSocket Ticket Authentication - Requirements"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-20T12:51:51.718Z",
+      "trigger": "approved",
+      "approvalId": "approval_1766235090181_mth0ttnwa",
+      "approvalTitle": "WebSocket Ticket Authentication - Requirements (修订版)"
+    }
+  ]
+}

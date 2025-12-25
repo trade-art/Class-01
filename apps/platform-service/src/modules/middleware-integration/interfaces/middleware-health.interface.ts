@@ -85,6 +85,12 @@ export interface HealthMetrics {
   memory_usage_mb?: number;
   /** 内存使用率 (%) */
   memory_usage_percent?: number;
+  /** 硬盘使用 (GB) */
+  disk_usage_gb?: number;
+  /** 硬盘使用率 (%) */
+  disk_usage_percent?: number;
+  /** 硬盘总容量 (GB) */
+  disk_total_gb?: number;
   /** 连接统计 */
   connections?: {
     total: number;

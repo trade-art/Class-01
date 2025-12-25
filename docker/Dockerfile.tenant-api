@@ -1,0 +1,103 @@
+# =============================================================================
+# MT5 Platform - Tenant API Dockerfile
+# Multi-stage build for optimized production image
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Stage 1: Dependencies - Install all dependencies
+# -----------------------------------------------------------------------------
+FROM node:20-alpine AS deps
+
+# Install build dependencies for native modules
+RUN apk add --no-cache libc6-compat python3 make g++
+
+WORKDIR /app
+
+# Copy package files for dependency installation
+COPY package.json package-lock.json ./
+COPY apps/tenant-api/package.json ./apps/tenant-api/
+COPY packages/shared/package.json ./packages/shared/
+
+# Install all dependencies (including devDependencies for build)
+RUN npm ci --legacy-peer-deps
+
+# -----------------------------------------------------------------------------
+# Stage 2: Builder - Build the application
+# -----------------------------------------------------------------------------
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy node_modules from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/tenant-api/node_modules ./apps/tenant-api/node_modules
+COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules 2>/dev/null || true
+
+# Copy source code
+COPY package.json package-lock.json tsconfig.json ./
+COPY apps/tenant-api ./apps/tenant-api
+COPY packages/shared ./packages/shared
+
+# Generate Prisma client
+RUN cd apps/tenant-api && npx prisma generate
+
+# Build the application
+RUN npm run build -w @mt5-platform/tenant-api
+
+# Prune dev dependencies
+RUN npm prune --production --legacy-peer-deps
+
+# -----------------------------------------------------------------------------
+# Stage 3: Runner - Production image
+# -----------------------------------------------------------------------------
+FROM node:20-alpine AS runner
+
+# Add labels for image metadata
+LABEL org.opencontainers.image.title="MT5 Tenant API"
+LABEL org.opencontainers.image.description="MT5 Platform Tenant API Service"
+LABEL org.opencontainers.image.vendor="MT5 Platform Team"
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    dumb-init \
+    curl \
+    && rm -rf /var/cache/apk/*
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 nestjs
+
+WORKDIR /app
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Copy production dependencies
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nestjs:nodejs /app/apps/tenant-api/node_modules ./apps/tenant-api/node_modules 2>/dev/null || true
+
+# Copy built application
+COPY --from=builder --chown=nestjs:nodejs /app/apps/tenant-api/dist ./apps/tenant-api/dist
+COPY --from=builder --chown=nestjs:nodejs /app/apps/tenant-api/package.json ./apps/tenant-api/
+
+# Copy Prisma schema and generated client
+COPY --from=builder --chown=nestjs:nodejs /app/apps/tenant-api/prisma ./apps/tenant-api/prisma
+COPY --from=builder --chown=nestjs:nodejs /app/apps/tenant-api/node_modules/.prisma ./apps/tenant-api/node_modules/.prisma 2>/dev/null || true
+COPY --from=builder --chown=nestjs:nodejs /app/apps/tenant-api/node_modules/@prisma ./apps/tenant-api/node_modules/@prisma 2>/dev/null || true
+
+# Switch to non-root user
+USER nestjs
+
+# Expose the application port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the application
+CMD ["node", "apps/tenant-api/dist/main.js"]

@@ -131,6 +131,7 @@ const currentRoute = computed(() => {
   const name = route.name as string
   if (name === 'TenantDetail') return 'tenants'
   if (name === 'InstanceDetail') return 'instances'
+  if (name === 'MiddlewareDetail') return 'middleware'
   return name?.toLowerCase() || 'dashboard'
 })
 
@@ -159,7 +160,7 @@ const menuOptions = computed<MenuOption[]>(() => [
   {
     label: t('menu.instances'),
     key: 'instances',
-    icon: () => h('i', { class: 'i-carbon-server' }),
+    icon: () => h('i', { class: 'i-carbon-bare-metal-server' }),
   },
   {
     label: t('menu.admins'),
@@ -180,6 +181,11 @@ const menuOptions = computed<MenuOption[]>(() => [
     label: t('menu.trading'),
     key: 'trading',
     icon: () => h('i', { class: 'i-carbon-chart-line' }),
+  },
+  {
+    label: t('menu.middleware'),
+    key: 'middleware',
+    icon: () => h('i', { class: 'i-carbon-cloud-services' }),
   },
 ])
 

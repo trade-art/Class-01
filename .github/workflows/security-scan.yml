@@ -1,0 +1,260 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # 每天凌晨 2 点运行
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  # npm audit 安全扫描
+  npm-audit:
+    name: NPM Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        id: audit
+        run: |
+          # 运行 npm audit 并捕获输出
+          set +e
+          npm audit --json > audit-report.json 2>&1
+          AUDIT_EXIT_CODE=$?
+          set -e
+
+          # 解析结果
+          if [ -f audit-report.json ]; then
+            CRITICAL=$(cat audit-report.json | jq '.metadata.vulnerabilities.critical // 0')
+            HIGH=$(cat audit-report.json | jq '.metadata.vulnerabilities.high // 0')
+            MODERATE=$(cat audit-report.json | jq '.metadata.vulnerabilities.moderate // 0')
+            LOW=$(cat audit-report.json | jq '.metadata.vulnerabilities.low // 0')
+            TOTAL=$(cat audit-report.json | jq '.metadata.vulnerabilities.total // 0')
+
+            echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+            echo "high=$HIGH" >> $GITHUB_OUTPUT
+            echo "moderate=$MODERATE" >> $GITHUB_OUTPUT
+            echo "low=$LOW" >> $GITHUB_OUTPUT
+            echo "total=$TOTAL" >> $GITHUB_OUTPUT
+
+            echo "### NPM Audit Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Critical | $CRITICAL |" >> $GITHUB_STEP_SUMMARY
+            echo "| High | $HIGH |" >> $GITHUB_STEP_SUMMARY
+            echo "| Moderate | $MODERATE |" >> $GITHUB_STEP_SUMMARY
+            echo "| Low | $LOW |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Total** | **$TOTAL** |" >> $GITHUB_STEP_SUMMARY
+
+            # 如果有高危或严重漏洞，失败
+            if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "⚠️ **Found critical or high severity vulnerabilities!**" >> $GITHUB_STEP_SUMMARY
+              echo "has_critical_or_high=true" >> $GITHUB_OUTPUT
+            else
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "✅ No critical or high severity vulnerabilities found." >> $GITHUB_STEP_SUMMARY
+              echo "has_critical_or_high=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Failed to generate audit report"
+            echo "has_critical_or_high=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: audit-report.json
+          retention-days: 30
+
+      - name: Fail on critical/high vulnerabilities
+        if: steps.audit.outputs.has_critical_or_high == 'true'
+        run: |
+          echo "::error::Found critical or high severity vulnerabilities. Please run 'npm audit' locally to review."
+          exit 1
+
+  # Snyk 安全扫描
+  snyk-scan:
+    name: Snyk Security Scan
+    runs-on: ubuntu-latest
+    # 只在有 SNYK_TOKEN 时运行
+    if: ${{ vars.SNYK_ENABLED == 'true' || github.event_name == 'schedule' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Snyk CLI
+        run: npm install -g snyk
+
+      - name: Authenticate Snyk
+        run: snyk auth ${{ secrets.SNYK_TOKEN }}
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Run Snyk test
+        id: snyk
+        continue-on-error: true
+        run: |
+          snyk test --json > snyk-report.json || true
+
+          # 解析结果
+          if [ -f snyk-report.json ]; then
+            CRITICAL=$(cat snyk-report.json | jq '[.vulnerabilities[]? | select(.severity == "critical")] | length')
+            HIGH=$(cat snyk-report.json | jq '[.vulnerabilities[]? | select(.severity == "high")] | length')
+            MEDIUM=$(cat snyk-report.json | jq '[.vulnerabilities[]? | select(.severity == "medium")] | length')
+            LOW=$(cat snyk-report.json | jq '[.vulnerabilities[]? | select(.severity == "low")] | length')
+
+            echo "### Snyk Security Scan Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Critical | $CRITICAL |" >> $GITHUB_STEP_SUMMARY
+            echo "| High | $HIGH |" >> $GITHUB_STEP_SUMMARY
+            echo "| Medium | $MEDIUM |" >> $GITHUB_STEP_SUMMARY
+            echo "| Low | $LOW |" >> $GITHUB_STEP_SUMMARY
+
+            if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "⚠️ **Found critical or high severity vulnerabilities!**" >> $GITHUB_STEP_SUMMARY
+              echo "has_issues=true" >> $GITHUB_OUTPUT
+            else
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "✅ No critical or high severity vulnerabilities found." >> $GITHUB_STEP_SUMMARY
+              echo "has_issues=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Upload Snyk report
+        uses: actions/upload-artifact@v4
+        with:
+          name: snyk-report
+          path: snyk-report.json
+          retention-days: 30
+
+      - name: Run Snyk monitor
+        if: github.ref == 'refs/heads/main'
+        run: snyk monitor
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  # 依赖许可证检查
+  license-check:
+    name: License Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install license-checker
+        run: npm install -g license-checker
+
+      - name: Check licenses
+        run: |
+          license-checker --json --out license-report.json
+
+          # 检查是否有禁止的许可证
+          FORBIDDEN_LICENSES="GPL-3.0,AGPL-3.0,LGPL-3.0,SSPL"
+
+          echo "### License Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # 统计许可证类型
+          echo "#### License Distribution" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          cat license-report.json | jq -r 'to_entries | map(.value.licenses) | group_by(.) | map({license: .[0], count: length}) | sort_by(-.count) | .[] | "\(.count) \(.license)"' | head -20 >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ License check completed." >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-report
+          path: license-report.json
+          retention-days: 30
+
+  # 代码安全扫描 (CodeQL)
+  codeql-analysis:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
+
+  # 安全扫描汇总
+  security-summary:
+    name: Security Summary
+    needs: [npm-audit, license-check, codeql-analysis]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| NPM Audit | ${{ needs.npm-audit.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| License Check | ${{ needs.license-check.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| CodeQL | ${{ needs.codeql-analysis.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check for failures
+        if: needs.npm-audit.result == 'failure'
+        run: |
+          echo "::warning::Security scan detected issues. Please review the reports."

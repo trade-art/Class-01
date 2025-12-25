@@ -3,6 +3,7 @@ import { HttpModule } from '@nestjs/axios';
 import { InstancesService } from './instances.service';
 import { InstancesController } from './instances.controller';
 import { InstanceEventRepository } from './instance-event.repository';
+import { MiddlewareIntegrationModule } from '../middleware-integration/middleware-integration.module';
 
 @Module({
   imports: [
@@ -10,6 +11,7 @@ import { InstanceEventRepository } from './instance-event.repository';
       timeout: 5000,
       maxRedirects: 3,
     }),
+    MiddlewareIntegrationModule,
   ],
   controllers: [InstancesController],
   providers: [InstancesService, InstanceEventRepository],

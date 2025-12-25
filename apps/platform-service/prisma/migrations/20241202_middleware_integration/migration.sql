@@ -4,8 +4,15 @@
 CREATE TYPE "CircuitBreakerState" AS ENUM ('CLOSED', 'OPEN', 'HALF_OPEN');
 CREATE TYPE "EventSeverity" AS ENUM ('INFO', 'WARNING', 'ERROR', 'CRITICAL');
 
--- Alter InstanceStatus enum to add DEGRADED
-ALTER TYPE "InstanceStatus" ADD VALUE IF NOT EXISTS 'DEGRADED';
+-- Create InstanceStatus enum if not exists, then add DEGRADED
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'InstanceStatus') THEN
+        CREATE TYPE "InstanceStatus" AS ENUM ('ONLINE', 'OFFLINE', 'MAINTENANCE', 'ERROR', 'DEGRADED');
+    ELSE
+        ALTER TYPE "InstanceStatus" ADD VALUE IF NOT EXISTS 'DEGRADED';
+    END IF;
+END$$;
 
 -- Add new columns to middleware_instances table
 ALTER TABLE "middleware_instances" ADD COLUMN IF NOT EXISTS "last_checked_at" TIMESTAMP(3);

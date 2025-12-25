@@ -11,6 +11,14 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { MiddlewareProxyService } from '../src/middleware-proxy';
 import { MockPrismaService } from './mocks/prisma.mock';
 import { MockMiddlewareProxyService } from './mocks/middleware-proxy.mock';
+import { AccountLockoutService } from '../src/security/account-lockout.service';
+import { RateLimiterService } from '../src/security/rate-limiter.service';
+import { MtServerService } from '../src/middleware-proxy/services/mt-server.service';
+import { MiddlewareAuthService } from '../src/middleware-proxy/services/middleware-auth.service';
+import { MockAccountLockoutService } from './mocks/account-lockout.mock';
+import { MockRateLimiterService } from './mocks/rate-limiter.mock';
+import { MockMtServerService } from './mocks/mt-server.mock';
+import { MockMiddlewareAuthService } from './mocks/middleware-auth.mock';
 import { TEST_TOKENS } from './fixtures/test-data';
 
 describe('WebSocketGateway (e2e)', () => {
@@ -23,6 +31,10 @@ describe('WebSocketGateway (e2e)', () => {
   beforeAll(async () => {
     mockPrismaService = new MockPrismaService();
     mockMiddlewareProxyService = new MockMiddlewareProxyService();
+    const mockAccountLockoutService = new MockAccountLockoutService();
+    const mockRateLimiterService = new MockRateLimiterService();
+    const mockMtServerService = new MockMtServerService();
+    const mockMiddlewareAuthService = new MockMiddlewareAuthService();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -31,6 +43,14 @@ describe('WebSocketGateway (e2e)', () => {
       .useValue(mockPrismaService)
       .overrideProvider(MiddlewareProxyService)
       .useValue(mockMiddlewareProxyService)
+      .overrideProvider(AccountLockoutService)
+      .useValue(mockAccountLockoutService)
+      .overrideProvider(RateLimiterService)
+      .useValue(mockRateLimiterService)
+      .overrideProvider(MtServerService)
+      .useValue(mockMtServerService)
+      .overrideProvider(MiddlewareAuthService)
+      .useValue(mockMiddlewareAuthService)
       .compile();
 
     app = moduleFixture.createNestApplication();

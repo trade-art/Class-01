@@ -320,3 +320,66 @@ export class MT5ServerInfoDto {
   @ApiProperty({ description: '版本' })
   version: string;
 }
+
+// ============================================
+// Subscription & Quota DTOs (订阅与配额)
+// ============================================
+
+/**
+ * 订阅计划枚举
+ */
+export enum SubscriptionPlan {
+  TRIAL = 'TRIAL',
+  BASIC = 'BASIC',
+  PROFESSIONAL = 'PROFESSIONAL',
+  ENTERPRISE = 'ENTERPRISE',
+}
+
+/**
+ * 资源使用量 DTO
+ */
+export class ResourceUsageDto {
+  @ApiProperty({ description: '当前使用量' })
+  used: number;
+
+  @ApiProperty({ description: '最大限额' })
+  max: number;
+
+  @ApiProperty({ description: '使用百分比' })
+  percentage: number;
+}
+
+/**
+ * 订阅状态 DTO
+ */
+export class SubscriptionStatusDto {
+  @ApiProperty({ description: '订阅计划', enum: SubscriptionPlan })
+  plan: SubscriptionPlan;
+
+  @ApiProperty({ description: '租户状态' })
+  status: string;
+
+  @ApiPropertyOptional({ description: '过期时间' })
+  expiresAt?: string;
+
+  @ApiProperty({ description: '是否即将过期 (30天内)' })
+  isExpiringSoon: boolean;
+
+  @ApiProperty({ description: '剩余天数 (-1 表示永不过期)' })
+  daysRemaining: number;
+
+  @ApiProperty({ description: '支持的平台类型', type: [String] })
+  supportedPlatforms: string[];
+
+  @ApiProperty({ description: '管理员配额' })
+  admins: ResourceUsageDto;
+
+  @ApiProperty({ description: 'MT 服务器配额' })
+  mtServers: ResourceUsageDto;
+
+  @ApiProperty({ description: '管理员账号配额' })
+  managerAccounts: ResourceUsageDto;
+
+  @ApiProperty({ description: '实例配额' })
+  instances: ResourceUsageDto;
+}

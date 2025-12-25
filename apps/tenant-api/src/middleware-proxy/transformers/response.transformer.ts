@@ -4,16 +4,29 @@ import { BusinessException, ErrorCodes, ErrorCode } from '../../common';
 /**
  * MT5 中间件响应格式
  * 中间件返回的原始响应结构
+ *
+ * 注意：中间件有两种响应格式：
+ * 1. 传统格式: { code: 0, data: {...}, message: "...", timestamp: ... }
+ * 2. 新格式: { success: true, data: {...} }
+ *
+ * 需要兼容两种格式
  */
 export interface MiddlewareRawResponse<T = unknown> {
-  /** 状态码: 1000=成功, >1000=错误 */
-  code: number;
+  /** 状态码: 0=成功, >0=错误 (传统格式) */
+  code?: number;
   /** 消息说明 */
-  message: string;
+  message?: string;
   /** 响应数据 */
   data: T;
   /** 时间戳 (Unix milliseconds) */
-  timestamp: number;
+  timestamp?: number;
+  /** 成功标志 (新格式) */
+  success?: boolean;
+  /** 错误信息 (新格式错误响应) */
+  error?: {
+    type?: string;
+    detail?: string;
+  };
 }
 
 /**
@@ -60,8 +73,12 @@ interface ErrorMapping {
  * 来自 MT5-middleware 的错误码定义
  */
 export const MiddlewareErrorCodes = {
-  /** 成功 */
-  SUCCESS: 1000,
+  /** 成功 (中间件实际返回 0，旧版本返回 1000) */
+  SUCCESS: 0,
+  /** 成功 (旧版本兼容) */
+  SUCCESS_LEGACY: 1000,
+  /** 成功 (HTTP 200 风格，部分端点使用) */
+  SUCCESS_HTTP_200: 200,
 
   // === 参数验证错误 (1001-1099) ===
   /** 参数验证失败 */
@@ -270,13 +287,54 @@ export class ResponseTransformer {
       });
     }
 
-    // 成功响应 (code === 1000)
-    if (response.code === MiddlewareErrorCodes.SUCCESS) {
+    // 检查响应是否成功 (兼容两种格式)
+    if (this.isSuccessResponse(response)) {
       return response.data;
     }
 
     // 错误响应 - 转换为 BusinessException
     this.throwMappedException(response);
+  }
+
+  /**
+   * 检查响应是否成功
+   * 兼容两种中间件响应格式：
+   * 1. 传统格式: { code: 0, data: {...} }
+   * 2. 新格式: { success: true, data: {...} }
+   * @param response 中间件响应
+   * @returns 是否成功
+   */
+  private isSuccessResponse(response: MiddlewareRawResponse<unknown>): boolean {
+    // 新格式: 检查 success 字段
+    if (response.success === true) {
+      return true;
+    }
+
+    // 传统格式: 检查 code 字段
+    if (response.code !== undefined) {
+      return this.isSuccessCode(response.code);
+    }
+
+    // 如果有 data 但没有 code 也没有 success，检查是否有 error 字段
+    // 没有 error 字段且有 data 则认为成功
+    if (response.data !== undefined && !response.error) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * 检查是否为成功状态码 (传统格式)
+   * @param code 响应码
+   * @returns 是否成功
+   */
+  private isSuccessCode(code: number): boolean {
+    return (
+      code === MiddlewareErrorCodes.SUCCESS ||
+      code === MiddlewareErrorCodes.SUCCESS_LEGACY ||
+      code === MiddlewareErrorCodes.SUCCESS_HTTP_200
+    );
   }
 
   /**
@@ -299,8 +357,8 @@ export class ResponseTransformer {
       };
     }
 
-    // 成功响应
-    if (response.code === MiddlewareErrorCodes.SUCCESS) {
+    // 成功响应 (兼容两种格式)
+    if (this.isSuccessResponse(response)) {
       return {
         success: true,
         data: response.data,
@@ -308,12 +366,12 @@ export class ResponseTransformer {
     }
 
     // 错误响应
-    const mapping = this.getErrorMapping(response.code);
+    const mapping = this.getErrorMapping(response.code ?? 0);
     return {
       success: false,
       error: {
         code: mapping.errorCode,
-        message: response.message || mapping.defaultMessage,
+        message: response.message || response.error?.detail || mapping.defaultMessage,
       },
     };
   }
@@ -324,7 +382,7 @@ export class ResponseTransformer {
    * @returns 是否成功
    */
   isSuccess(response: MiddlewareRawResponse<unknown>): boolean {
-    return response?.code === MiddlewareErrorCodes.SUCCESS;
+    return response ? this.isSuccessResponse(response) : false;
   }
 
   /**
@@ -386,11 +444,11 @@ export class ResponseTransformer {
    * @throws BusinessException
    */
   private throwMappedException(response: MiddlewareRawResponse<unknown>): never {
-    const mapping = this.getErrorMapping(response.code);
+    const mapping = this.getErrorMapping(response.code ?? 0);
 
     throw new BusinessException({
       code: mapping.errorCode,
-      message: response.message || mapping.defaultMessage,
+      message: response.message || response.error?.detail || mapping.defaultMessage,
       status: mapping.httpStatus,
       details: {
         middlewareCode: response.code,

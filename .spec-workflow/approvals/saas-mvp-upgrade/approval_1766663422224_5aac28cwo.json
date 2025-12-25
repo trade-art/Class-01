@@ -1,0 +1,12 @@
+{
+  "id": "approval_1766663422224_5aac28cwo",
+  "title": "Requirements Document - SaaS MVP Upgrade",
+  "filePath": ".spec-workflow/specs/saas-mvp-upgrade/requirements.md",
+  "type": "document",
+  "status": "rejected",
+  "createdAt": "2025-12-25T11:50:22.224Z",
+  "category": "spec",
+  "categoryName": "saas-mvp-upgrade",
+  "response": "请在认为合适的节点增加测试及验证环节",
+  "respondedAt": "2025-12-25T11:50:52.779Z"
+}

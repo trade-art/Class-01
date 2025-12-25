@@ -1,0 +1,349 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip E2E tests'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/mt5-platform
+  STAGING_HOST: ${{ secrets.STAGING_HOST }}
+
+concurrency:
+  group: staging-deployment
+  cancel-in-progress: false
+
+jobs:
+  # Build Docker images
+  build:
+    name: Build Images
+    uses: ./.github/workflows/docker-build.yml
+    permissions:
+      contents: read
+      packages: write
+    secrets: inherit
+
+  # Run database migrations
+  migrate:
+    name: Database Migration
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Check pending migrations
+        id: check-migrations
+        run: |
+          cd apps/platform-service
+          STATUS=$(npx prisma migrate status 2>&1 || true)
+          echo "$STATUS"
+          if echo "$STATUS" | grep -q "Database schema is up to date"; then
+            echo "has_pending=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_pending=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+
+      - name: Create pre-migration backup
+        if: steps.check-migrations.outputs.has_pending == 'true'
+        run: |
+          echo "📦 Creating pre-migration backup..."
+          chmod +x scripts/db-backup.sh
+          ./scripts/db-backup.sh --env staging --pre-migration || echo "Backup script not fully configured for CI"
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          NODE_ENV: staging
+        continue-on-error: true
+
+      - name: Run migrations
+        run: |
+          cd apps/platform-service
+          echo "🚀 Running Prisma migrations..."
+          npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+
+      - name: Regenerate Prisma client
+        run: |
+          cd apps/platform-service
+          npx prisma generate
+
+      - name: Verify migrations
+        run: |
+          cd apps/platform-service
+          echo "✅ Verifying migration status..."
+          npx prisma migrate status
+
+          # Run basic verification
+          echo "🔍 Running basic data integrity check..."
+          npx prisma db execute --stdin <<< "SELECT COUNT(*) as tenant_count FROM tenants;" || true
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+
+      - name: Upload migration logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: migration-logs-staging
+          path: |
+            logs/migrations/
+            logs/verification/
+          retention-days: 7
+
+  # Deploy to staging
+  deploy:
+    name: Deploy
+    needs: [build, migrate]
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.mt5-platform.example.com
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
+
+      - name: Add host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ env.STAGING_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy to staging server
+        run: |
+          # Copy deployment files
+          scp -r docker-compose.yml docker-compose.prod.yml docker/ ${{ secrets.STAGING_USER }}@${{ env.STAGING_HOST }}:~/mt5-platform/
+
+          # Deploy on staging server
+          ssh ${{ secrets.STAGING_USER }}@${{ env.STAGING_HOST }} << 'ENDSSH'
+            cd ~/mt5-platform
+
+            # Pull latest images
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+
+            # Rolling update
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps --scale tenant-api=2 tenant-api
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps --scale platform-service=2 platform-service
+
+            # Wait for health checks
+            sleep 30
+
+            # Verify deployment
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+          ENDSSH
+        env:
+          APP_VERSION: ${{ github.sha }}
+
+      - name: Verify deployment health
+        run: |
+          # Wait for services to be ready
+          sleep 10
+
+          # Check health endpoints
+          for i in {1..10}; do
+            if curl -sf "https://staging.mt5-platform.example.com/health" > /dev/null; then
+              echo "✅ Health check passed"
+              exit 0
+            fi
+            echo "Waiting for service to be ready... ($i/10)"
+            sleep 5
+          done
+
+          echo "❌ Health check failed"
+          exit 1
+        continue-on-error: true
+
+  # Run E2E tests on staging
+  e2e-tests:
+    name: E2E Tests
+    needs: deploy
+    if: github.event.inputs.skip_tests != 'true'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run E2E tests
+        run: |
+          cd apps/tenant-api
+          npm run test:e2e
+        env:
+          API_URL: https://staging.mt5-platform.example.com
+          NODE_ENV: test
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-test-results
+          path: apps/tenant-api/reports/
+
+  # Notify on completion
+  notify:
+    name: Notify
+    needs: [deploy, e2e-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "Staging Deployment ${{ needs.deploy.result == 'success' && needs.e2e-tests.result != 'failure' && '✅ Succeeded' || '❌ Failed' }}",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "MT5 Platform - Staging Deployment"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Status:*\n${{ needs.deploy.result == 'success' && needs.e2e-tests.result != 'failure' && '✅ Success' || '❌ Failed' }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ github.ref_name }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit:*\n${{ github.sha }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*E2E Tests:*\n${{ needs.e2e-tests.result }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Workflow"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    },
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Staging"
+                      },
+                      "url": "https://staging.mt5-platform.example.com"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        continue-on-error: true
+
+  # Rollback on failure
+  rollback:
+    name: Rollback
+    needs: [deploy, e2e-tests]
+    if: failure() && needs.deploy.result == 'success'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
+
+      - name: Add host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ env.STAGING_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Rollback deployment
+        run: |
+          ssh ${{ secrets.STAGING_USER }}@${{ env.STAGING_HOST }} << 'ENDSSH'
+            cd ~/mt5-platform
+
+            # Get previous image tags
+            PREV_TAG=$(docker images --format "{{.Tag}}" ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/tenant-api | sed -n '2p')
+
+            if [ -n "$PREV_TAG" ]; then
+              echo "Rolling back to: $PREV_TAG"
+              APP_VERSION=$PREV_TAG docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+              echo "✅ Rollback completed"
+            else
+              echo "⚠️ No previous version found for rollback"
+            fi
+          ENDSSH
+
+      - name: Notify rollback
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "⚠️ Staging deployment rolled back due to E2E test failures",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "⚠️ *Staging deployment rolled back*\nE2E tests failed after deployment. Previous version has been restored."
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        continue-on-error: true

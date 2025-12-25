@@ -1,0 +1,292 @@
+name: Docker Build
+
+on:
+  push:
+    branches: [main, develop]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      push_images:
+        description: 'Push images to registry'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/mt5-platform
+
+jobs:
+  # Detect which services need to be built
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      tenant-api: ${{ steps.changes.outputs.tenant-api }}
+      platform-service: ${{ steps.changes.outputs.platform-service }}
+      tenant-console: ${{ steps.changes.outputs.tenant-console }}
+      platform-console: ${{ steps.changes.outputs.platform-console }}
+      gateway: ${{ steps.changes.outputs.gateway }}
+      should-push: ${{ steps.should-push.outputs.result }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            tenant-api:
+              - 'apps/tenant-api/**'
+              - 'packages/shared/**'
+              - 'docker/Dockerfile.tenant-api'
+            platform-service:
+              - 'apps/platform-service/**'
+              - 'packages/shared/**'
+              - 'docker/Dockerfile.platform-service'
+            tenant-console:
+              - 'apps/tenant-console/**'
+              - 'docker/Dockerfile.tenant-console'
+            platform-console:
+              - 'apps/platform-console/**'
+              - 'docker/Dockerfile.platform-console'
+            gateway:
+              - 'docker/nginx/**'
+
+      - name: Determine if should push
+        id: should-push
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && ("${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == refs/tags/v*) ]]; then
+            echo "result=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.inputs.push_images }}" == "true" ]]; then
+            echo "result=true" >> $GITHUB_OUTPUT
+          else
+            echo "result=false" >> $GITHUB_OUTPUT
+          fi
+
+  # Build and push tenant-api
+  build-tenant-api:
+    name: Build Tenant API
+    needs: detect-changes
+    if: needs.detect-changes.outputs.tenant-api == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        if: needs.detect-changes.outputs.should-push == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/tenant-api
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.tenant-api
+          push: ${{ needs.detect-changes.outputs.should-push == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  # Build and push platform-service
+  build-platform-service:
+    name: Build Platform Service
+    needs: detect-changes
+    if: needs.detect-changes.outputs.platform-service == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        if: needs.detect-changes.outputs.should-push == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/platform-service
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.platform-service
+          push: ${{ needs.detect-changes.outputs.should-push == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  # Build and push tenant-console
+  build-tenant-console:
+    name: Build Tenant Console
+    needs: detect-changes
+    if: needs.detect-changes.outputs.tenant-console == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        if: needs.detect-changes.outputs.should-push == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/tenant-console
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.tenant-console
+          push: ${{ needs.detect-changes.outputs.should-push == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VITE_API_BASE_URL=/api
+
+  # Build and push platform-console
+  build-platform-console:
+    name: Build Platform Console
+    needs: detect-changes
+    if: needs.detect-changes.outputs.platform-console == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        if: needs.detect-changes.outputs.should-push == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/platform-console
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.platform-console
+          push: ${{ needs.detect-changes.outputs.should-push == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VITE_API_BASE_URL=/api
+
+  # Summary job
+  build-summary:
+    name: Build Summary
+    needs: [build-tenant-api, build-platform-service, build-tenant-console, build-platform-console]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check build results
+        run: |
+          echo "Build Results:"
+          echo "  Tenant API: ${{ needs.build-tenant-api.result }}"
+          echo "  Platform Service: ${{ needs.build-platform-service.result }}"
+          echo "  Tenant Console: ${{ needs.build-tenant-console.result }}"
+          echo "  Platform Console: ${{ needs.build-platform-console.result }}"
+
+          # Check for failures (skip does not count as failure)
+          FAILED=false
+          for result in "${{ needs.build-tenant-api.result }}" "${{ needs.build-platform-service.result }}" "${{ needs.build-tenant-console.result }}" "${{ needs.build-platform-console.result }}"; do
+            if [ "$result" == "failure" ]; then
+              FAILED=true
+            fi
+          done
+
+          if [ "$FAILED" == "true" ]; then
+            echo "❌ Some builds failed"
+            exit 1
+          fi
+
+          echo "✅ All builds completed successfully"

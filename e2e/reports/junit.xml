@@ -1,0 +1,68 @@
+<testsuites id="" name="" tests="11" failures="0" skipped="7" errors="0" time="0.8766700000000001">
+<testsuite name="tests\tenant-console-manager-access.spec.ts" timestamp="2025-12-19T06:04:01.767Z" hostname="chromium" tests="11" failures="0" skipped="7" time="0.312" errors="0">
+<testcase name="Tenant Console Manager Access Flow › Pool Mode Token Generation › should successfully get Manager Access Token after login" classname="tests\tenant-console-manager-access.spec.ts" time="0.116">
+<properties>
+<property name="skip" value="No managers available for testing">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Tenant Console Manager Access Flow › Pool Mode Token Generation › should reject unauthenticated requests" classname="tests\tenant-console-manager-access.spec.ts" time="0.031">
+</testcase>
+<testcase name="Tenant Console Manager Access Flow › Pool Mode Token Generation › should reject non-existent manager" classname="tests\tenant-console-manager-access.spec.ts" time="0.081">
+</testcase>
+<testcase name="Tenant Console Manager Access Flow › Middleware API Access with Pool Mode Token › should authenticate to middleware with Pool Mode token" classname="tests\tenant-console-manager-access.spec.ts" time="0.012">
+<properties>
+<property name="skip" value="No managers available">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Tenant Console Manager Access Flow › Middleware API Access with Pool Mode Token › should access trading data with Pool Mode token" classname="tests\tenant-console-manager-access.spec.ts" time="0.008">
+<properties>
+<property name="skip" value="No managers available">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Tenant Console Manager Access Flow › Connection Pool Usage Verification › should use connection pool for Pool Mode token requests" classname="tests\tenant-console-manager-access.spec.ts" time="0.009">
+<properties>
+<property name="skip" value="No managers available">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Tenant Console Manager Access Flow › Connection Pool Usage Verification › should verify Pool Mode token uses pre-established connection" classname="tests\tenant-console-manager-access.spec.ts" time="0.009">
+<properties>
+<property name="skip" value="No managers available">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Tenant Console Manager Access Flow › Token Expiry and Refresh › should include proper expiry in Manager Access Token" classname="tests\tenant-console-manager-access.spec.ts" time="0.009">
+<properties>
+<property name="skip" value="No managers available">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Tenant Console Manager Access Flow › Token Expiry and Refresh › should be able to get new token before expiry" classname="tests\tenant-console-manager-access.spec.ts" time="0.011">
+<properties>
+<property name="skip" value="No managers available">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Tenant Console Manager Access Flow › Error Handling › should return proper error for inactive manager" classname="tests\tenant-console-manager-access.spec.ts" time="0.015">
+</testcase>
+<testcase name="Tenant Console Manager Access Flow › Error Handling › should return proper error for manager from different tenant" classname="tests\tenant-console-manager-access.spec.ts" time="0.011">
+</testcase>
+</testsuite>
+</testsuites>

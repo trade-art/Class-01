@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/manager-connection-pool/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-18T05:59:22.726Z",
+      "trigger": "initial",
+      "approvalId": "approval_1766037562705_s647rabak",
+      "approvalTitle": "Requirements: Manager Connection Pool"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-18T06:14:25.255Z",
+      "trigger": "approved",
+      "approvalId": "approval_1766038355269_inv9k4pw5",
+      "approvalTitle": "Requirements: Manager Connection Pool (14项需求完整版)"
+    }
+  ]
+}

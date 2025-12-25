@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/security-hardening/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-05T14:54:23.482Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764946463452_wcta657hx",
+      "approvalTitle": "Security Hardening Requirements"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-05T14:54:41.050Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764946463452_wcta657hx",
+      "approvalTitle": "Security Hardening Requirements"
+    }
+  ]
+}

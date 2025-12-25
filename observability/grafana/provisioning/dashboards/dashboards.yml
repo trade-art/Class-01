@@ -1,0 +1,14 @@
+# Grafana 仪表板配置
+apiVersion: 1
+
+providers:
+  - name: 'MT5 Platform Dashboards'
+    orgId: 1
+    folder: 'MT5 Platform'
+    folderUid: 'mt5-platform'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json

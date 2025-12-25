@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MiddlewareProxyService, DealDto } from '../middleware-proxy';
+import { CacheService, CacheTTL } from '../common';
 import {
   HistoryQueryDto,
   HistoryOrderDto,
@@ -11,16 +12,21 @@ import {
 /**
  * 历史交易服务
  * 提供历史订单查询、统计和导出功能
+ * 使用 Redis 缓存优化响应速度
  */
 @Injectable()
 export class HistoryService {
   private readonly logger = new Logger(HistoryService.name);
 
-  constructor(private readonly middlewareProxy: MiddlewareProxyService) {}
+  constructor(
+    private readonly middlewareProxy: MiddlewareProxyService,
+    private readonly cacheService: CacheService,
+  ) {}
 
   /**
    * 获取历史订单列表
    * 使用 MiddlewareProxyService.getDeals() 获取真实交易历史
+   * 使用 Redis 缓存优化响应速度（缓存60秒）
    */
   async getList(
     instanceId: string,
@@ -46,8 +52,24 @@ export class HistoryService {
     if (query.from) params.from = query.from;
     if (query.to) params.to = query.to;
 
+    // 构建缓存键 - 只用基础参数避免缓存碎片化
+    const cacheKey = this.cacheService.buildKey('history', instanceId, `p${page}_l${limit}`);
+
+    // 尝试从缓存获取
+    const cachedResult = await this.cacheService.get<{ deals: DealDto[]; total: number }>(cacheKey);
+
     try {
-      const result = await this.middlewareProxy.getDeals(instanceId, params);
+      let result: { deals: DealDto[]; total: number };
+
+      if (cachedResult) {
+        this.logger.debug(`History cache hit for ${instanceId}`);
+        result = cachedResult;
+      } else {
+        this.logger.debug(`History cache miss for ${instanceId}, fetching from MT5`);
+        result = await this.middlewareProxy.getDeals(instanceId, params);
+        // 缓存结果（60秒）
+        await this.cacheService.set(cacheKey, result, CacheTTL.HISTORY);
+      }
 
       // 额外的本地过滤 (login, type, profit 范围)
       let filteredDeals = result.deals;

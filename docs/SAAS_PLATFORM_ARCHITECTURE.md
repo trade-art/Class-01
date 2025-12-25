@@ -1240,7 +1240,252 @@ RPO: Recovery Point Objective (恢复点目标) = 最近1小时
 
 ---
 
-## 10. 风险与建议
+## 10. 中间件集中管理架构
+
+### 10.1 架构概述
+
+在 SaaS 模式下，中间件实例由平台统一管理和分配。租户无法直接管理中间件实例，而是通过平台管理员进行配置。
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        Platform Service                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                    中间件管理模块                                     │    │
+│  │  ┌─────────────┐  ┌─────────────────┐  ┌─────────────────────────┐  │    │
+│  │  │ Middleware  │  │ Middleware      │  │ Middleware Config       │  │    │
+│  │  │ Service     │  │ Assignment      │  │ Service (Internal API)  │  │    │
+│  │  │             │  │ Service         │  │                         │  │    │
+│  │  │ - CRUD      │  │                 │  │ - 配置拉取              │  │    │
+│  │  │ - API Key   │  │ - 分配租户      │  │ - 心跳上报              │  │    │
+│  │  │ - 健康检查  │  │ - 取消分配      │  │ - 健康检查              │  │    │
+│  │  │             │  │ - 容量管理      │  │                         │  │    │
+│  │  └──────┬──────┘  └────────┬────────┘  └───────────┬─────────────┘  │    │
+│  │         │                  │                       │                │    │
+│  └─────────┼──────────────────┼───────────────────────┼────────────────┘    │
+│            │                  │                       │                     │
+│            ▼                  ▼                       ▼                     │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                      PostgreSQL                                      │    │
+│  │  ┌─────────────┐  ┌─────────────────┐  ┌─────────────────────────┐  │    │
+│  │  │ Middleware  │  │ Middleware      │  │ MtServer                │  │    │
+│  │  │             │  │ Assignment      │  │                         │  │    │
+│  │  │ - id        │  │                 │  │ - tenantId              │  │    │
+│  │  │ - name      │  │ - middlewareId  │  │ - serverId              │  │    │
+│  │  │ - url       │  │ - tenantId      │  │ - serverAddress         │  │    │
+│  │  │ - apiKey    │  │ - assignedAt    │  │ - managerPassword (加密)│  │    │
+│  │  │ - status    │  │ - assignedBy    │  │ - configVersion         │  │    │
+│  │  │ - maxTenants│  │                 │  │                         │  │    │
+│  │  └─────────────┘  └─────────────────┘  └─────────────────────────┘  │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ API Key 认证
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        Middleware Instances                                  │
+│                                                                             │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
+│  │  Middleware A   │  │  Middleware B   │  │  Middleware C   │             │
+│  │  (SHARED)       │  │  (SHARED)       │  │  (DEDICATED)    │             │
+│  │                 │  │                 │  │                 │             │
+│  │  租户: A, B, C  │  │  租户: D, E     │  │  租户: F (独占) │             │
+│  │  容量: 3/10     │  │  容量: 2/10     │  │  容量: 1/1      │             │
+│  │                 │  │                 │  │                 │             │
+│  │  ┌───────────┐  │  │  ┌───────────┐  │  │  ┌───────────┐  │             │
+│  │  │ 定期心跳  │──┼──┼──│ 定期心跳  │──┼──┼──│ 定期心跳  │──┼────────────▶│
+│  │  └───────────┘  │  │  └───────────┘  │  │  └───────────┘  │   Platform  │
+│  │                 │  │                 │  │                 │   Service   │
+│  │  ┌───────────┐  │  │  ┌───────────┐  │  │  ┌───────────┐  │             │
+│  │  │ 拉取配置  │◀─┼──┼──│ 拉取配置  │◀─┼──┼──│ 拉取配置  │◀─┼────────────│
+│  │  └───────────┘  │  │  └───────────┘  │  │  └───────────┘  │             │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.2 核心数据模型
+
+#### Middleware 表
+```sql
+CREATE TABLE middlewares (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name            VARCHAR(200) NOT NULL,
+    description     TEXT,
+    url             VARCHAR(500) UNIQUE NOT NULL,
+
+    -- API Key 认证
+    api_key         VARCHAR(200) NOT NULL,       -- 仅创建时返回
+    api_key_hash    VARCHAR(200) NOT NULL,       -- 用于验证
+
+    -- 分配模式
+    assignment_mode  VARCHAR(20) DEFAULT 'SHARED', -- SHARED / DEDICATED
+    max_tenants     INT DEFAULT 10,
+
+    -- 健康状态
+    status          VARCHAR(20) DEFAULT 'UNKNOWN', -- ONLINE / OFFLINE / DEGRADED / ERROR / UNKNOWN
+    last_heartbeat  TIMESTAMPTZ,
+    server_ip       VARCHAR(50),
+    active_sessions INT DEFAULT 0,
+    memory_usage    DECIMAL(5,2),                 -- 百分比
+    cpu_usage       DECIMAL(5,2),                 -- 百分比
+    cache_status    JSONB,
+
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+#### MiddlewareAssignment 表
+```sql
+CREATE TABLE middleware_assignments (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    middleware_id   UUID NOT NULL REFERENCES middlewares(id) ON DELETE CASCADE,
+    tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+
+    assigned_at     TIMESTAMPTZ DEFAULT NOW(),
+    assigned_by     UUID NOT NULL,
+    notes           TEXT,
+
+    UNIQUE(middleware_id, tenant_id)
+);
+```
+
+### 10.3 分配模式
+
+| 模式 | 说明 | 使用场景 |
+|------|------|----------|
+| **SHARED** | 共享模式，多个租户共用一个中间件实例 | 小型租户，成本敏感 |
+| **DEDICATED** | 独占模式，一个租户独占一个中间件实例 | 大型租户，性能要求高 |
+
+#### 分配规则
+1. **SHARED 模式**：检查当前租户数是否小于 `maxTenants`
+2. **DEDICATED 模式**：检查是否已有租户分配
+3. **租户限制**：租户必须已配置 MT 服务器才能分配中间件
+4. **重复检查**：同一租户不能重复分配到同一中间件
+
+### 10.4 服务间通信
+
+#### API Key 认证流程
+```
+┌─────────────┐                    ┌─────────────────┐
+│  Middleware │                    │ Platform Service│
+│  Instance   │                    │                 │
+└──────┬──────┘                    └────────┬────────┘
+       │                                    │
+       │  GET /internal/middleware/config   │
+       │  X-Middleware-API-Key: mw_xxx      │
+       │────────────────────────────────────▶
+       │                                    │
+       │            ┌───────────────────────┤
+       │            │ 1. 提取 API Key       │
+       │            │ 2. 计算 Hash          │
+       │            │ 3. 查询数据库匹配     │
+       │            │ 4. 验证通过           │
+       │            └───────────────────────┤
+       │                                    │
+       │  200 OK                            │
+       │  { tenants: [...], mtServers: [...]}
+       │◀────────────────────────────────────
+       │                                    │
+```
+
+#### 配置拉取响应结构
+```json
+{
+  "middlewareId": "mw-001",
+  "middlewareName": "Middleware-01",
+  "configVersion": 5,
+  "configUpdatedAt": "2025-12-09T10:00:00Z",
+  "tenants": [
+    {
+      "tenantId": "tenant-001",
+      "tenantCode": "DEMO",
+      "tenantName": "Demo Tenant",
+      "mtServers": [
+        {
+          "serverId": "mt5-demo-01",
+          "platformType": "MT5",
+          "serverAddress": "mt5.demo.com:443",
+          "managerLogin": "1000",
+          "managerPassword": "解密后的密码",
+          "isDefault": true,
+          "configVersion": 3
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### 心跳上报
+中间件定期（默认30秒）向平台上报运行状态：
+
+```json
+{
+  "serverIp": "192.168.1.100",
+  "activeSessions": 25,
+  "memoryUsage": 65.5,
+  "cpuUsage": 30.2,
+  "cacheStatus": {
+    "redisConnected": true,
+    "hitRate": 0.95,
+    "totalKeys": 1500
+  },
+  "status": "healthy"
+}
+```
+
+### 10.5 健康状态管理
+
+#### 状态定义
+| 状态 | 说明 | 触发条件 |
+|------|------|----------|
+| ONLINE | 正常运行 | 心跳正常，健康检查通过 |
+| OFFLINE | 离线 | 超过3次心跳未收到 |
+| DEGRADED | 降级 | CPU > 90% 或 内存 > 90% |
+| ERROR | 错误 | 健康检查失败 |
+| UNKNOWN | 未知 | 初始状态，尚未收到心跳 |
+
+#### 状态转换
+```
+                    ┌─────────┐
+                    │ UNKNOWN │
+                    └────┬────┘
+                         │ 收到首次心跳
+                         ▼
+┌─────────┐        ┌─────────┐        ┌─────────┐
+│ OFFLINE │◀──────▶│  ONLINE │◀──────▶│DEGRADED │
+└─────────┘        └────┬────┘        └─────────┘
+     ▲                  │                  ▲
+     │                  │                  │
+     │                  ▼                  │
+     │             ┌─────────┐             │
+     └─────────────│  ERROR  │─────────────┘
+                   └─────────┘
+```
+
+### 10.6 安全考虑
+
+1. **API Key 安全**
+   - API Key 使用 SHA-256 哈希存储
+   - 明文 Key 仅在创建时返回一次
+   - 支持重新生成 Key（旧 Key 立即失效）
+
+2. **密码加密**
+   - MT 服务器管理员密码使用 AES-256-GCM 加密存储
+   - 仅在服务间 API 中解密返回
+   - 加密密钥通过环境变量管理
+
+3. **网络隔离**
+   - 内部 API (`/internal/*`) 建议仅允许内网访问
+   - 使用 API Key + IP 白名单双重认证
+
+4. **审计日志**
+   - 所有管理操作记录到审计日志
+   - 包含操作人、时间、操作内容
+
+---
+
+## 11. 风险与建议
 
 ### 10.1 潜在风险
 

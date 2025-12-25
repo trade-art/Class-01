@@ -85,6 +85,7 @@ export const api = {
     activate: (id: string) => request.post<any, any>(`/tenants/${id}/activate`),
     suspend: (id: string) => request.post<any, any>(`/tenants/${id}/suspend`),
     getStats: () => request.get<any, any>('/tenants/stats'),
+    getRelatedCount: (id: string) => request.get<any, any>(`/tenants/${id}/related-count`),
   },
 
   instances: {
@@ -143,6 +144,19 @@ export const api = {
     getTenantRanking: (params?: any) => request.get<any, any>('/trading-data/tenant-ranking', { params }),
     getSymbolDistribution: (params?: any) => request.get<any, any>('/trading-data/symbol-distribution', { params }),
     getTenantDetail: (tenantId: string, params?: any) => request.get<any, any>(`/trading-data/tenant/${tenantId}`, { params }),
+  },
+
+  mtServers: {
+    list: (tenantId: string, params?: any) =>
+      request.get<any, any>(`/tenants/${tenantId}/mt-servers`, { params }),
+    get: (tenantId: string, serverId: string) =>
+      request.get<any, any>(`/tenants/${tenantId}/mt-servers/${serverId}`),
+    create: (tenantId: string, data: any) =>
+      request.post<any, any>(`/tenants/${tenantId}/mt-servers`, data),
+    update: (tenantId: string, serverId: string, data: any) =>
+      request.put<any, any>(`/tenants/${tenantId}/mt-servers/${serverId}`, data),
+    delete: (tenantId: string, serverId: string) =>
+      request.delete<any, any>(`/tenants/${tenantId}/mt-servers/${serverId}`),
   },
 }
 

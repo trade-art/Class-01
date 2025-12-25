@@ -22,14 +22,6 @@ export class LoginDto {
   password: string;
 
   @ApiPropertyOptional({
-    description: '租户代码 (白标域名登录时可选，系统会自动从域名识别)',
-    example: 'DEMO',
-  })
-  @IsOptional()
-  @IsString()
-  tenantCode?: string;
-
-  @ApiPropertyOptional({
     description: '记住登录状态',
     example: false,
   })

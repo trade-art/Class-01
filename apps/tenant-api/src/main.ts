@@ -1,16 +1,30 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
+import * as cookieParser from 'cookie-parser';
+import { StructuredLoggerService, LogLevel } from '@mt5-platform/shared';
 import { AppModule } from './app.module';
+import { EnhancedValidationPipe, getEnvironmentHelmetConfig } from './security';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // 创建应用级别日志记录器
+  const appLogger = new StructuredLoggerService({
+    serviceName: 'tenant-api',
+    level: (process.env.LOG_LEVEL as LogLevel) || 'info',
+    prettyPrint: process.env.NODE_ENV !== 'production',
+  });
+
+  const app = await NestFactory.create(AppModule, {
+    logger: appLogger,
+  });
   const configService = app.get(ConfigService);
 
-  // 安全中间件
-  app.use(helmet());
+  // 安全中间件（环境自适应配置）
+  app.use(helmet(getEnvironmentHelmetConfig()));
+
+  // Cookie 解析中间件
+  app.use(cookieParser());
 
   // CORS 配置
   const corsOrigins = configService.get<string>('CORS_ORIGINS')?.split(',') || ['http://localhost:5174'];
@@ -20,20 +34,11 @@ async function bootstrap() {
   });
 
   // 全局前缀 - 使用 /tenant 前缀区分于 platform-service
-  const apiPrefix = configService.get<string>('API_PREFIX') || 'tenant';
+  const apiPrefix = configService.get<string>('apiPrefix') || 'tenant';
   app.setGlobalPrefix(apiPrefix);
 
-  // 全局验证管道
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
-    }),
-  );
+  // 全局验证管道（增强版）
+  app.useGlobalPipes(new EnhancedValidationPipe());
 
   // Swagger API 文档
   const config = new DocumentBuilder()
@@ -62,12 +67,17 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
 
-  // 启动服务
-  const port = configService.get<number>('PORT') || 3002;
+  // 启动服务 - 使用配置文件中的 'port' 键或环境变量 PORT
+  const port = configService.get<number>('port') || parseInt(process.env.PORT || '3200', 10);
   await app.listen(port);
 
-  console.log(`🚀 Tenant API Service is running on: http://localhost:${port}`);
-  console.log(`📚 API Documentation: http://localhost:${port}/docs`);
+  // 使用结构化日志记录启动信息
+  appLogger.log(`Tenant API Service started`, {
+    module: 'Bootstrap',
+    port,
+    environment: process.env.NODE_ENV || 'development',
+    docsUrl: `http://localhost:${port}/docs`,
+  });
 }
 
 bootstrap();

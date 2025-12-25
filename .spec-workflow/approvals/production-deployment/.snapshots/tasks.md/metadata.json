@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/production-deployment/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-05T15:08:53.455Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764947333424_tw2734zgd",
+      "approvalTitle": "P1: production-deployment Tasks (20 tasks)"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-05T15:09:18.980Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764947333424_tw2734zgd",
+      "approvalTitle": "P1: production-deployment Tasks (20 tasks)"
+    }
+  ]
+}

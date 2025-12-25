@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/mt5-multiprocess-architecture/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-23T07:07:32.200Z",
+      "trigger": "initial",
+      "approvalId": "approval_1766473652178_2ifh2zmgc",
+      "approvalTitle": "MT5 多进程架构需求文档"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-23T07:08:43.977Z",
+      "trigger": "approved",
+      "approvalId": "approval_1766473652178_2ifh2zmgc",
+      "approvalTitle": "MT5 多进程架构需求文档"
+    }
+  ]
+}

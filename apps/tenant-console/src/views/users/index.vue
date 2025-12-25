@@ -1,60 +1,79 @@
 <template>
   <div class="page-container">
-    <div class="page-header flex-between">
+    <div class="page-header">
       <h1 class="page-title">{{ t('users.title') }}</h1>
-      <n-button type="primary" @click="handleCreate">
-        <template #icon>
-          <span class="i-carbon-add"></span>
-        </template>
-        {{ t('users.createUser') }}
-      </n-button>
     </div>
 
     <!-- Search & Filters -->
     <n-card class="filter-card">
-      <n-space :wrap="true" :size="16">
-        <n-input
-          v-model:value="filters.keyword"
-          :placeholder="t('users.searchPlaceholder')"
-          clearable
-          style="width: 240px"
-          @keyup.enter="handleSearch"
-        >
-          <template #prefix>
-            <span class="i-carbon-search"></span>
-          </template>
-        </n-input>
+      <div class="filter-row">
+        <n-space :wrap="true" :size="16" align="center">
+          <!-- MT Manager Selector -->
+          <n-select
+            v-if="usersStore.mtManagers.length > 0"
+            :value="usersStore.currentManagerId"
+            :options="managerOptions"
+            :placeholder="t('users.selectManager')"
+            :loading="usersStore.managersLoading"
+            style="width: 200px"
+            @update:value="handleManagerChange"
+          />
+          <n-tag v-else-if="!usersStore.managersLoading" type="warning" size="small">
+            {{ t('users.noManagerTitle') }}
+          </n-tag>
 
-        <n-select
-          v-model:value="filters.status"
-          :placeholder="t('users.status')"
-          :options="statusOptions"
-          clearable
-          style="width: 140px"
-        />
+          <n-divider vertical />
 
-        <n-select
-          v-model:value="filters.group"
-          :placeholder="t('users.group')"
-          :options="groupOptions"
-          clearable
-          style="width: 160px"
-        />
+          <n-input
+            v-model:value="filters.keyword"
+            :placeholder="t('users.searchPlaceholder')"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleSearch"
+          >
+            <template #prefix>
+              <span class="i-carbon-search"></span>
+            </template>
+          </n-input>
 
-        <n-button type="primary" @click="handleSearch">
+          <n-select
+            v-model:value="filters.status"
+            :placeholder="t('users.status')"
+            :options="statusOptions"
+            clearable
+            style="width: 120px"
+          />
+
+          <n-select
+            v-model:value="filters.group"
+            :placeholder="t('users.group')"
+            :options="groupOptions"
+            clearable
+            style="width: 140px"
+          />
+
+          <n-button type="primary" @click="handleSearch">
+            <template #icon>
+              <span class="i-carbon-search"></span>
+            </template>
+            {{ t('common.search') }}
+          </n-button>
+
+          <n-button @click="handleReset">
+            <template #icon>
+              <span class="i-carbon-reset"></span>
+            </template>
+            {{ t('common.reset') }}
+          </n-button>
+        </n-space>
+
+        <n-button type="primary" @click="handleCreate" :disabled="!usersStore.currentManagerId">
           <template #icon>
-            <span class="i-carbon-search"></span>
+            <span class="i-carbon-add"></span>
           </template>
-          {{ t('common.search') }}
+          {{ t('users.createUser') }}
         </n-button>
-
-        <n-button @click="handleReset">
-          <template #icon>
-            <span class="i-carbon-reset"></span>
-          </template>
-          {{ t('common.reset') }}
-        </n-button>
-      </n-space>
+      </div>
     </n-card>
 
     <!-- Users Table -->
@@ -88,14 +107,19 @@
         <n-form-item :label="t('users.login')" path="login">
           <n-input-number
             v-model:value="formData.login"
-            :placeholder="t('users.loginPlaceholder')"
+            :placeholder="editingUser ? '' : 'Next'"
             :disabled="!!editingUser"
+            :show-button="false"
             style="width: 100%"
           />
         </n-form-item>
 
-        <n-form-item :label="t('users.name')" path="name">
-          <n-input v-model:value="formData.name" :placeholder="t('users.namePlaceholder')" />
+        <n-form-item :label="t('users.lastName')" path="lastName">
+          <n-input v-model:value="formData.lastName" :placeholder="t('users.lastNamePlaceholder')" />
+        </n-form-item>
+
+        <n-form-item :label="t('users.firstName')" path="firstName">
+          <n-input v-model:value="formData.firstName" :placeholder="t('users.firstNamePlaceholder')" />
         </n-form-item>
 
         <n-form-item :label="t('users.email')" path="email">
@@ -123,12 +147,20 @@
         </n-form-item>
 
         <n-form-item v-if="!editingUser" :label="t('users.password')" path="password">
-          <n-input
-            v-model:value="formData.password"
-            type="password"
-            show-password-on="click"
-            :placeholder="t('users.passwordPlaceholder')"
-          />
+          <n-input-group>
+            <n-input
+              v-model:value="formData.password"
+              type="password"
+              show-password-on="click"
+              :placeholder="t('users.passwordPlaceholder')"
+              style="flex: 1"
+            />
+            <n-button @click="formData.password = generatePassword()" :title="t('users.regeneratePassword')">
+              <template #icon>
+                <span class="i-carbon-renew"></span>
+              </template>
+            </n-button>
+          </n-input-group>
         </n-form-item>
       </n-form>
 
@@ -153,6 +185,7 @@ import {
   NButton,
   NInput,
   NInputNumber,
+  NInputGroup,
   NSelect,
   NSpace,
   NDataTable,
@@ -161,6 +194,7 @@ import {
   NFormItem,
   NTag,
   NDropdown,
+  NDivider,
   useMessage,
   useDialog,
   type DataTableColumns,
@@ -189,7 +223,8 @@ const filters = reactive({
 
 const formData = reactive({
   login: null as number | null,
-  name: '',
+  lastName: '',
+  firstName: '',
   email: '',
   phone: '',
   group: '',
@@ -200,15 +235,24 @@ const formData = reactive({
 const statusOptions = computed(() => [
   { label: t('users.statusActive'), value: 'active' },
   { label: t('users.statusInactive'), value: 'inactive' },
-  { label: t('users.statusSuspended'), value: 'suspended' },
 ])
 
-const groupOptions = computed(() => [
-  { label: 'Standard', value: 'standard' },
-  { label: 'Premium', value: 'premium' },
-  { label: 'VIP', value: 'vip' },
-  { label: 'Demo', value: 'demo' },
-])
+// 从 store 获取组别选项（根据当前 MT 经理账户）
+const groupOptions = computed(() =>
+  usersStore.groups.map((group) => ({
+    label: group,
+    value: group,
+  }))
+)
+
+// MT 经理账户选项
+const managerOptions = computed(() =>
+  usersStore.mtManagers.map((manager) => ({
+    label: manager.displayName || `${t('users.managerAccount')} ${manager.managerLogin}`,
+    value: manager.id,
+    suffix: manager.isDefault ? ` (${t('users.defaultManager')})` : '',
+  }))
+)
 
 const leverageOptions = [
   { label: '1:50', value: 50 },
@@ -217,9 +261,33 @@ const leverageOptions = [
   { label: '1:500', value: 500 },
 ]
 
+// 生成随机密码（8位，包含大小写字母、数字和特殊符号）
+const generatePassword = (): string => {
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz'
+  const numbers = '0123456789'
+  const special = '!@#$%^&*'
+  const all = uppercase + lowercase + numbers + special
+
+  // 确保每种字符至少有一个
+  let password = ''
+  password += uppercase[Math.floor(Math.random() * uppercase.length)]
+  password += lowercase[Math.floor(Math.random() * lowercase.length)]
+  password += numbers[Math.floor(Math.random() * numbers.length)]
+  password += special[Math.floor(Math.random() * special.length)]
+
+  // 填充剩余4位
+  for (let i = 0; i < 4; i++) {
+    password += all[Math.floor(Math.random() * all.length)]
+  }
+
+  // 打乱顺序
+  return password.split('').sort(() => Math.random() - 0.5).join('')
+}
+
 const formRules: FormRules = {
-  login: [{ required: true, type: 'number', message: () => t('users.loginRequired'), trigger: 'blur' }],
-  name: [{ required: true, message: () => t('users.nameRequired'), trigger: 'blur' }],
+  lastName: [{ required: true, message: () => t('users.lastNameRequired'), trigger: 'blur' }],
+  firstName: [{ required: true, message: () => t('users.firstNameRequired'), trigger: 'blur' }],
   email: [{ type: 'email', message: () => t('users.invalidEmail'), trigger: 'blur' }],
   group: [{ required: true, message: () => t('users.groupRequired'), trigger: 'blur' }],
   password: [
@@ -301,7 +369,6 @@ const columns: DataTableColumns<TradingUser> = [
       const statusMap: Record<string, { type: 'success' | 'error' | 'warning' | 'default'; label: string }> = {
         active: { type: 'success', label: t('users.statusActive') },
         inactive: { type: 'default', label: t('users.statusInactive') },
-        suspended: { type: 'error', label: t('users.statusSuspended') },
       }
       const config = statusMap[row.status] || { type: 'default', label: row.status }
       return h(NTag, { size: 'small', type: config.type }, () => config.label)
@@ -318,7 +385,7 @@ const columns: DataTableColumns<TradingUser> = [
         { label: t('common.edit'), key: 'edit' },
         { label: t('users.resetPassword'), key: 'resetPassword' },
         { type: 'divider', key: 'd1' },
-        { label: row.status === 'suspended' ? t('users.activate') : t('users.suspend'), key: 'toggleStatus' },
+        { label: row.status === 'inactive' ? t('users.activate') : t('users.deactivate'), key: 'toggleStatus' },
       ]
 
       return h(
@@ -380,12 +447,13 @@ const handleCreate = () => {
   editingUser.value = null
   Object.assign(formData, {
     login: null,
-    name: '',
+    lastName: '',
+    firstName: '',
     email: '',
     phone: '',
     group: '',
     leverage: 100,
-    password: '',
+    password: generatePassword(),
   })
   showModal.value = true
 }
@@ -394,7 +462,7 @@ const handleEdit = (user: TradingUser) => {
   editingUser.value = user
   Object.assign(formData, {
     login: user.login,
-    name: user.name,
+    name: user.name || '',
     email: user.email,
     phone: user.phone || '',
     group: user.group,
@@ -464,8 +532,8 @@ const handleResetPassword = (user: TradingUser) => {
 }
 
 const handleToggleStatus = (user: TradingUser) => {
-  const action = user.status === 'suspended' ? 'activate' : 'suspend'
-  const actionText = user.status === 'suspended' ? t('users.activate') : t('users.suspend')
+  const action = user.status === 'disabled' ? 'activate' : 'deactivate'
+  const actionText = user.status === 'disabled' ? t('users.activate') : t('users.deactivate')
 
   dialog.warning({
     title: actionText,
@@ -474,8 +542,8 @@ const handleToggleStatus = (user: TradingUser) => {
     negativeText: t('common.cancel'),
     onPositiveClick: async () => {
       try {
-        if (action === 'suspend') {
-          await usersStore.suspendUser(user.id)
+        if (action === 'deactivate') {
+          await usersStore.deactivateUser(user.id)
         } else {
           await usersStore.activateUser(user.id)
         }
@@ -488,13 +556,34 @@ const handleToggleStatus = (user: TradingUser) => {
   })
 }
 
-onMounted(() => {
+// 处理经理账户切换
+const handleManagerChange = async (managerId: string) => {
+  usersStore.setCurrentManager(managerId)
+  // 重新加载该经理账户下的组别列表
+  await usersStore.loadGroups(managerId)
   handleSearch()
+}
+
+onMounted(async () => {
+  // 先加载经理账户列表
+  await usersStore.loadManagers()
+  // 然后加载组别列表和用户列表
+  if (usersStore.currentManagerId) {
+    await usersStore.loadGroups()
+    handleSearch()
+  }
 })
 </script>
 
 <style scoped>
 .filter-card {
   margin-bottom: 16px;
+}
+
+.filter-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
 }
 </style>

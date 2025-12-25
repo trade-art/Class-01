@@ -83,18 +83,12 @@ export class ResponseInterceptor<T>
           };
         }
 
-        // 检查是否为分页响应
+        // 检查是否为分页响应 - 保持原始结构，不拆分 items 和 meta
+        // 前端期望格式: { success: true, data: { items, total, page, pageSize } }
         if (this.isPaginatedResponse(data)) {
-          const paginatedData = data as PaginatedData<any>;
           return {
             success: true as const,
-            data: paginatedData.items as T,
-            meta: {
-              page: paginatedData.page,
-              pageSize: paginatedData.pageSize,
-              total: paginatedData.total,
-              totalPages: Math.ceil(paginatedData.total / paginatedData.pageSize),
-            },
+            data: data as T,
           };
         }
 

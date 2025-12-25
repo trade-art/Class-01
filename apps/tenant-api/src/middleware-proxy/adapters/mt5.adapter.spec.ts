@@ -16,11 +16,32 @@ describe('MT5Adapter', () => {
   let adapter: MT5Adapter;
   let mockHttpService: jest.Mocked<HttpService>;
 
+  // 基础配置（不含 ServiceToken）- 用于测试弃用认证模式的错误
   const mockConfig: AdapterConfig = {
     baseUrl: 'http://localhost:8080',
     timeout: 30000,
     retryAttempts: 3,
     retryDelay: 1000,
+  };
+
+  // ServiceToken 配置 - 用于正常功能测试
+  const mockServiceTokenConfig: AdapterConfig = {
+    baseUrl: 'http://localhost:8080',
+    timeout: 30000,
+    retryAttempts: 3,
+    retryDelay: 1000,
+    serviceToken: {
+      token: 'test-service-token-jwt',
+      tokenType: 'Bearer',
+      expiresAt: Math.floor(Date.now() / 1000) + 3600, // 1小时后过期
+    },
+    authHeaders: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer test-service-token-jwt',
+      'X-Tenant-Id': 'test-tenant',
+      'X-Server-Id': 'test-server',
+      'X-Server-Address': 'localhost:443',
+    },
   };
 
   // 辅助函数：创建 Axios 响应
@@ -39,7 +60,8 @@ describe('MT5Adapter', () => {
       request: jest.fn(),
     } as unknown as jest.Mocked<HttpService>;
 
-    adapter = new MT5Adapter(mockHttpService, mockConfig);
+    // 默认使用 ServiceToken 配置
+    adapter = new MT5Adapter(mockHttpService, mockServiceTokenConfig);
   });
 
   describe('基础属性', () => {
@@ -49,94 +71,67 @@ describe('MT5Adapter', () => {
   });
 
   describe('authenticate', () => {
-    it('应该成功认证并返回令牌', async () => {
-      const mockResponse = {
-        success: true,
-        data: {
-          access_token: 'test-token-123',
-          expires_in: 3600,
-        },
-      };
-
-      mockHttpService.request.mockReturnValue(
-        of(createAxiosResponse(mockResponse)),
-      );
-
+    it('使用 ServiceToken 模式时应直接返回已配置的令牌', async () => {
+      // adapter 已在 beforeEach 中使用 mockServiceTokenConfig 创建
       const token = await adapter.authenticate(12345, 'password123');
 
-      expect(token).toBe('test-token-123');
-      expect(mockHttpService.request).toHaveBeenCalledWith(
-        expect.objectContaining({
-          method: 'post',
-          url: 'http://localhost:8080/api/v1/auth/login',
-          data: {
-            login: 12345,
-            password: 'password123',
-          },
-        }),
-      );
+      // 应该返回 ServiceToken 而不是调用 HTTP 端点
+      expect(token).toBe('test-service-token-jwt');
+      // 不应该调用任何 HTTP 请求
+      expect(mockHttpService.request).not.toHaveBeenCalled();
     });
 
-    it('认证失败时应抛出异常', async () => {
-      const mockResponse = {
-        success: false,
-        data: null,
-        message: 'Invalid credentials',
+    it('使用 authHeaders 模式时应返回固定令牌标识', async () => {
+      // 创建只有 authHeaders 没有完整 serviceToken 的配置
+      const authHeadersOnlyConfig: AdapterConfig = {
+        baseUrl: 'http://localhost:8080',
+        timeout: 30000,
+        authHeaders: {
+          Authorization: 'Bearer some-external-token',
+          'X-Tenant-Id': 'test-tenant',
+        },
       };
-
-      mockHttpService.request.mockReturnValue(
-        of(createAxiosResponse(mockResponse)),
+      const authHeadersAdapter = new MT5Adapter(
+        mockHttpService,
+        authHeadersOnlyConfig,
       );
 
-      await expect(adapter.authenticate(12345, 'wrong')).rejects.toThrow(
-        'Invalid credentials',
+      const token = await authHeadersAdapter.authenticate(12345, 'password');
+
+      expect(token).toBe('service-token-auth');
+      expect(mockHttpService.request).not.toHaveBeenCalled();
+    });
+
+    it('没有 ServiceToken 配置时应抛出弃用错误', async () => {
+      // 使用不含 ServiceToken 的基础配置创建适配器
+      const legacyAdapter = new MT5Adapter(mockHttpService, mockConfig);
+
+      await expect(legacyAdapter.authenticate(12345, 'password')).rejects.toThrow(
+        '传统登录认证模式已弃用',
       );
+      // 不应该调用任何 HTTP 请求
+      expect(mockHttpService.request).not.toHaveBeenCalled();
     });
   });
 
   describe('refreshToken', () => {
-    it('应该成功刷新令牌', async () => {
-      // 先认证
-      const authResponse = {
-        success: true,
-        data: { access_token: 'old-token', expires_in: 3600 },
-      };
-      mockHttpService.request.mockReturnValueOnce(
-        of(createAxiosResponse(authResponse)),
-      );
-      await adapter.authenticate(12345, 'password123');
-
-      // 刷新令牌
-      const refreshResponse = {
-        success: true,
-        data: { access_token: 'new-token', expires_in: 3600 },
-      };
-      mockHttpService.request.mockReturnValueOnce(
-        of(createAxiosResponse(refreshResponse)),
-      );
-
+    it('使用 ServiceToken 模式时应返回当前令牌（不实际刷新）', async () => {
+      // adapter 已使用 ServiceToken 配置，refreshToken 应该返回当前令牌
       const newToken = await adapter.refreshToken();
 
-      expect(newToken).toBe('new-token');
+      // ServiceToken 模式下刷新令牌返回当前令牌
+      expect(newToken).toBe('test-service-token-jwt');
+      // 不应该调用任何 HTTP 请求
+      expect(mockHttpService.request).not.toHaveBeenCalled();
     });
   });
 
   describe('getUsers', () => {
-    beforeEach(async () => {
-      // 先认证
-      const authResponse = {
-        success: true,
-        data: { access_token: 'test-token', expires_in: 3600 },
-      };
-      mockHttpService.request.mockReturnValueOnce(
-        of(createAxiosResponse(authResponse)),
-      );
-      await adapter.authenticate(12345, 'password');
-    });
+    // 适配器已通过 ServiceToken 配置自动认证，无需 beforeEach 中调用 authenticate
 
     it('应该返回用户列表并正确转换字段', async () => {
       const mockResponse = {
-        success: true,
+        code: 0,
         data: {
           users: [
             {
@@ -184,7 +179,7 @@ describe('MT5Adapter', () => {
 
     it('应该正确传递查询参数', async () => {
       const mockResponse = {
-        success: true,
+        code: 0,
         data: { users: [], total: 0 },
       };
 
@@ -213,20 +208,11 @@ describe('MT5Adapter', () => {
   });
 
   describe('getUser', () => {
-    beforeEach(async () => {
-      const authResponse = {
-        success: true,
-        data: { access_token: 'test-token', expires_in: 3600 },
-      };
-      mockHttpService.request.mockReturnValueOnce(
-        of(createAxiosResponse(authResponse)),
-      );
-      await adapter.authenticate(12345, 'password');
-    });
+    // 适配器已通过 ServiceToken 配置自动认证
 
     it('应该返回单个用户', async () => {
       const mockResponse = {
-        success: true,
+        code: 0,
         data: {
           login: 1001,
           name: 'Test User',
@@ -252,7 +238,7 @@ describe('MT5Adapter', () => {
 
     it('用户不存在时应返回 null', async () => {
       const mockResponse = {
-        success: false,
+        code: -1,
         data: null,
         message: 'User not found',
       };
@@ -268,20 +254,11 @@ describe('MT5Adapter', () => {
   });
 
   describe('getPositions', () => {
-    beforeEach(async () => {
-      const authResponse = {
-        success: true,
-        data: { access_token: 'test-token', expires_in: 3600 },
-      };
-      mockHttpService.request.mockReturnValueOnce(
-        of(createAxiosResponse(authResponse)),
-      );
-      await adapter.authenticate(12345, 'password');
-    });
+    // 适配器已通过 ServiceToken 配置自动认证
 
     it('应该返回持仓列表并正确转换字段', async () => {
       const mockResponse = {
-        success: true,
+        code: 0,
         data: [
           {
             ticket: 123456,
@@ -320,7 +297,7 @@ describe('MT5Adapter', () => {
 
     it('应该支持按品种筛选', async () => {
       const mockResponse = {
-        success: true,
+        code: 0,
         data: [
           {
             ticket: 1,
@@ -361,20 +338,11 @@ describe('MT5Adapter', () => {
   });
 
   describe('getOrders', () => {
-    beforeEach(async () => {
-      const authResponse = {
-        success: true,
-        data: { access_token: 'test-token', expires_in: 3600 },
-      };
-      mockHttpService.request.mockReturnValueOnce(
-        of(createAxiosResponse(authResponse)),
-      );
-      await adapter.authenticate(12345, 'password');
-    });
+    // 适配器已通过 ServiceToken 配置自动认证
 
     it('应该返回订单列表并正确转换字段', async () => {
       const mockResponse = {
-        success: true,
+        code: 0,
         data: [
           {
             ticket: 789,
@@ -413,20 +381,11 @@ describe('MT5Adapter', () => {
   });
 
   describe('getDeals', () => {
-    beforeEach(async () => {
-      const authResponse = {
-        success: true,
-        data: { access_token: 'test-token', expires_in: 3600 },
-      };
-      mockHttpService.request.mockReturnValueOnce(
-        of(createAxiosResponse(authResponse)),
-      );
-      await adapter.authenticate(12345, 'password');
-    });
+    // 适配器已通过 ServiceToken 配置自动认证
 
     it('应该返回成交记录并正确转换字段', async () => {
       const mockResponse = {
-        success: true,
+        code: 0,
         data: {
           deals: [
             {
@@ -467,20 +426,11 @@ describe('MT5Adapter', () => {
   });
 
   describe('getSymbols', () => {
-    beforeEach(async () => {
-      const authResponse = {
-        success: true,
-        data: { access_token: 'test-token', expires_in: 3600 },
-      };
-      mockHttpService.request.mockReturnValueOnce(
-        of(createAxiosResponse(authResponse)),
-      );
-      await adapter.authenticate(12345, 'password');
-    });
+    // 适配器已通过 ServiceToken 配置自动认证
 
     it('应该返回品种列表并正确转换字段', async () => {
       const mockResponse = {
-        success: true,
+        code: 0,
         data: [
           {
             symbol: 'EURUSD',
@@ -524,7 +474,7 @@ describe('MT5Adapter', () => {
 
     it('应该支持搜索筛选', async () => {
       const mockResponse = {
-        success: true,
+        code: 0,
         data: [
           {
             symbol: 'EURUSD',
@@ -567,20 +517,11 @@ describe('MT5Adapter', () => {
   });
 
   describe('getQuote / getQuotes', () => {
-    beforeEach(async () => {
-      const authResponse = {
-        success: true,
-        data: { access_token: 'test-token', expires_in: 3600 },
-      };
-      mockHttpService.request.mockReturnValueOnce(
-        of(createAxiosResponse(authResponse)),
-      );
-      await adapter.authenticate(12345, 'password');
-    });
+    // 适配器已通过 ServiceToken 配置自动认证
 
     it('应该返回单个品种报价', async () => {
       const mockResponse = {
-        success: true,
+        code: 0,
         data: {
           symbol: 'EURUSD',
           bid: 1.1,
@@ -606,7 +547,7 @@ describe('MT5Adapter', () => {
 
     it('应该返回多个品种报价', async () => {
       const mockResponse = {
-        success: true,
+        code: 0,
         data: [
           {
             symbol: 'EURUSD',
@@ -638,7 +579,7 @@ describe('MT5Adapter', () => {
   describe('getServerStatus / testConnection', () => {
     it('应该返回服务器状态', async () => {
       const mockResponse = {
-        success: true,
+        code: 0,
         data: {
           status: 'healthy',
           server_time: '2024-12-01T12:00:00Z',
@@ -661,50 +602,28 @@ describe('MT5Adapter', () => {
       expect(status.activePositions).toBe(500);
     });
 
-    it('testConnection 应该返回 true 当服务器健康时', async () => {
-      const mockResponse = {
-        success: true,
-        data: {
-          status: 'healthy',
-          server_time: '2024-12-01T12:00:00Z',
-        },
-      };
-
-      mockHttpService.request.mockReturnValueOnce(
-        of(createAxiosResponse(mockResponse)),
-      );
-
+    it('testConnection 应该返回 true 当 ServiceToken 模式下调用 authenticate 后', async () => {
+      // ServiceToken 模式下，authenticate 会设置 serverConnected = true
+      await adapter.authenticate(12345, 'password123');
       const result = await adapter.testConnection();
-
       expect(result).toBe(true);
     });
 
-    it('testConnection 应该返回 false 当连接失败时', async () => {
-      mockHttpService.request.mockReturnValueOnce(
-        throwError(() => new Error('Connection refused')),
-      );
-
-      const result = await adapter.testConnection();
-
+    it('testConnection 应该返回 false 当未调用 authenticate 时', async () => {
+      // 创建新的适配器，但不调用 authenticate
+      const newAdapter = new MT5Adapter(mockHttpService, mockServiceTokenConfig);
+      const result = await newAdapter.testConnection();
+      // serverConnected 默认为 false
       expect(result).toBe(false);
     });
   });
 
   describe('updateUserGroup', () => {
-    beforeEach(async () => {
-      const authResponse = {
-        success: true,
-        data: { access_token: 'test-token', expires_in: 3600 },
-      };
-      mockHttpService.request.mockReturnValueOnce(
-        of(createAxiosResponse(authResponse)),
-      );
-      await adapter.authenticate(12345, 'password');
-    });
+    // 适配器已通过 ServiceToken 配置自动认证
 
     it('应该成功更新用户组', async () => {
       const mockResponse = {
-        success: true,
+        code: 0,
         data: {},
       };
 
@@ -726,7 +645,7 @@ describe('MT5Adapter', () => {
 
     it('更新失败时应返回 false', async () => {
       const mockResponse = {
-        success: false,
+        code: -1,
         data: null,
         message: 'Update failed',
       };
@@ -742,22 +661,29 @@ describe('MT5Adapter', () => {
   });
 
   describe('isAuthenticated', () => {
-    it('未认证时应返回 false', () => {
-      expect(adapter.isAuthenticated()).toBe(false);
+    it('使用 ServiceToken 配置时应返回 true（自动认证）', () => {
+      // adapter 在 beforeEach 中使用 mockServiceTokenConfig 创建，已自动认证
+      expect(adapter.isAuthenticated()).toBe(true);
     });
 
-    it('认证后应返回 true', async () => {
-      const authResponse = {
-        success: true,
-        data: { access_token: 'test-token', expires_in: 3600 },
+    it('没有 ServiceToken 配置时应返回 false', () => {
+      // 使用不含 ServiceToken 的基础配置创建适配器
+      const unauthenticatedAdapter = new MT5Adapter(mockHttpService, mockConfig);
+      expect(unauthenticatedAdapter.isAuthenticated()).toBe(false);
+    });
+
+    it('ServiceToken 过期时应返回 false', () => {
+      // 创建一个已过期的 ServiceToken 配置
+      const expiredConfig: AdapterConfig = {
+        baseUrl: 'http://localhost:8080',
+        serviceToken: {
+          token: 'expired-token',
+          tokenType: 'Bearer',
+          expiresAt: Math.floor(Date.now() / 1000) - 3600, // 1小时前已过期
+        },
       };
-      mockHttpService.request.mockReturnValueOnce(
-        of(createAxiosResponse(authResponse)),
-      );
-
-      await adapter.authenticate(12345, 'password');
-
-      expect(adapter.isAuthenticated()).toBe(true);
+      const expiredAdapter = new MT5Adapter(mockHttpService, expiredConfig);
+      expect(expiredAdapter.isAuthenticated()).toBe(false);
     });
   });
 });

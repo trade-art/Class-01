@@ -1,0 +1,240 @@
+# Prometheus Alert Rules for MT5 Platform
+# SSL Certificate and Security Monitoring
+
+groups:
+  # SSL 证书告警组
+  - name: ssl-certificates
+    rules:
+      # 证书 30 天内过期警告
+      - alert: SSLCertificateExpiringSoon
+        expr: ssl_certificate_expiry_days < 30
+        for: 1h
+        labels:
+          severity: warning
+          category: security
+          component: ssl
+        annotations:
+          summary: "SSL Certificate expiring soon"
+          description: "SSL certificate for {{ $labels.domain }} will expire in {{ $value }} days. Threshold: 30 days."
+          runbook_url: "https://docs.example.com/runbooks/ssl-certificate-renewal"
+
+      # 证书 7 天内过期严重告警
+      - alert: SSLCertificateExpiringCritical
+        expr: ssl_certificate_expiry_days < 7
+        for: 5m
+        labels:
+          severity: critical
+          category: security
+          component: ssl
+        annotations:
+          summary: "SSL Certificate expiring very soon"
+          description: "SSL certificate for {{ $labels.domain }} will expire in {{ $value }} days. URGENT renewal required!"
+          runbook_url: "https://docs.example.com/runbooks/ssl-certificate-renewal"
+
+      # 证书已过期
+      - alert: SSLCertificateExpired
+        expr: ssl_certificate_expiry_days <= 0
+        for: 0m
+        labels:
+          severity: critical
+          category: security
+          component: ssl
+          pagerduty: trigger
+        annotations:
+          summary: "SSL Certificate has expired"
+          description: "SSL certificate for {{ $labels.domain }} has EXPIRED {{ $value | abs }} days ago!"
+          runbook_url: "https://docs.example.com/runbooks/ssl-certificate-expired"
+
+  # TLS 配置告警组
+  - name: tls-configuration
+    rules:
+      # HSTS 未启用
+      - alert: HSTSNotEnabled
+        expr: http_hsts_enabled == 0
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+          component: tls
+        annotations:
+          summary: "HSTS not enabled"
+          description: "HTTP Strict Transport Security (HSTS) is not enabled for {{ $labels.domain }}."
+
+      # TLS 版本过低
+      - alert: TLSVersionTooOld
+        expr: tls_min_version_supported < 1.2
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+          component: tls
+        annotations:
+          summary: "TLS version too old"
+          description: "Server {{ $labels.instance }} supports TLS versions below 1.2. Consider upgrading."
+
+  # API 安全告警组
+  - name: api-security
+    rules:
+      # 高频率 401 错误 (可能的暴力破解)
+      - alert: HighRateOf401Errors
+        expr: |
+          sum(rate(http_requests_total{status="401"}[5m])) by (instance)
+          / sum(rate(http_requests_total[5m])) by (instance) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+          component: api
+        annotations:
+          summary: "High rate of authentication failures"
+          description: "More than 10% of requests are resulting in 401 errors on {{ $labels.instance }}. Possible brute force attack."
+
+      # 高频率 403 错误 (可能的未授权访问尝试)
+      - alert: HighRateOf403Errors
+        expr: |
+          sum(rate(http_requests_total{status="403"}[5m])) by (instance)
+          / sum(rate(http_requests_total[5m])) by (instance) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+          component: api
+        annotations:
+          summary: "High rate of authorization failures"
+          description: "More than 5% of requests are resulting in 403 errors on {{ $labels.instance }}. Possible unauthorized access attempt."
+
+      # 高频率 429 错误 (触发限流)
+      - alert: HighRateOfRateLimiting
+        expr: |
+          sum(rate(http_requests_total{status="429"}[5m])) by (instance) > 10
+        for: 2m
+        labels:
+          severity: info
+          category: security
+          component: rate-limiting
+        annotations:
+          summary: "High rate of rate limiting triggered"
+          description: "Rate limiting is frequently triggered on {{ $labels.instance }}. {{ $value }} requests/s are being rate limited."
+
+      # 可疑 IP 访问
+      - alert: SuspiciousIPActivity
+        expr: |
+          sum(rate(http_requests_from_blacklisted_ip_total[5m])) by (instance) > 0
+        for: 1m
+        labels:
+          severity: warning
+          category: security
+          component: ip-blacklist
+        annotations:
+          summary: "Requests from blacklisted IP detected"
+          description: "Requests from blacklisted IP addresses detected on {{ $labels.instance }}."
+
+  # 账户安全告警组
+  - name: account-security
+    rules:
+      # 账户锁定事件
+      - alert: AccountLockoutDetected
+        expr: increase(account_lockouts_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: warning
+          category: security
+          component: account
+        annotations:
+          summary: "Multiple account lockouts detected"
+          description: "{{ $value }} account lockouts occurred in the last 5 minutes on {{ $labels.instance }}. Possible brute force attack."
+
+      # 异常登录尝试
+      - alert: AbnormalLoginAttempts
+        expr: |
+          sum(rate(login_attempts_total{status="failed"}[5m])) by (instance) > 50
+        for: 2m
+        labels:
+          severity: warning
+          category: security
+          component: authentication
+        annotations:
+          summary: "Abnormal login attempt rate"
+          description: "{{ $value }} failed login attempts per second detected on {{ $labels.instance }}."
+
+      # 非工作时间登录
+      - alert: OffHoursLogin
+        expr: |
+          increase(login_success_off_hours_total[1h]) > 0
+        for: 0m
+        labels:
+          severity: info
+          category: security
+          component: authentication
+        annotations:
+          summary: "Off-hours login detected"
+          description: "Login activity detected outside normal business hours on {{ $labels.instance }}."
+
+  # 数据安全告警组
+  - name: data-security
+    rules:
+      # 大量数据导出
+      - alert: LargeDataExport
+        expr: data_export_rows_total > 10000
+        for: 0m
+        labels:
+          severity: info
+          category: security
+          component: data-protection
+        annotations:
+          summary: "Large data export detected"
+          description: "A data export of {{ $value }} rows was performed by user {{ $labels.user_id }}."
+
+      # 敏感数据访问
+      - alert: SensitiveDataAccess
+        expr: increase(sensitive_data_access_total[5m]) > 100
+        for: 1m
+        labels:
+          severity: warning
+          category: security
+          component: data-protection
+        annotations:
+          summary: "High rate of sensitive data access"
+          description: "{{ $value }} sensitive data accesses in the last 5 minutes on {{ $labels.instance }}."
+
+  # 应用健康告警组
+  - name: application-health
+    rules:
+      # 服务不可用
+      - alert: ServiceUnavailable
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+          component: service
+        annotations:
+          summary: "Service is down"
+          description: "Service {{ $labels.job }} on {{ $labels.instance }} has been down for more than 1 minute."
+
+      # 高错误率
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (instance, job)
+          / sum(rate(http_requests_total[5m])) by (instance, job) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          category: reliability
+          component: api
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 5% for {{ $labels.job }} on {{ $labels.instance }}."
+
+      # 高延迟
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, instance, job)) > 1
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+          component: api
+        annotations:
+          summary: "High latency detected"
+          description: "95th percentile latency is above 1s for {{ $labels.job }} on {{ $labels.instance }}."

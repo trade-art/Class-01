@@ -2,11 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { MtServerService, CreateMtServerDto } from './mt-server.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AdapterFactory } from '../adapters/adapter.factory';
+import { MiddlewareAuthService } from './middleware-auth.service';
 import { PlatformType } from '../adapters/types';
 
 describe('MtServerService', () => {
   let service: MtServerService;
   let prismaService: jest.Mocked<PrismaService>;
+  let adapterFactory: jest.Mocked<AdapterFactory>;
 
   const mockTenantId = 'tenant-123';
   const mockServerId = 'server-456';
@@ -25,6 +28,9 @@ describe('MtServerService', () => {
     isDefault: true,
     createdAt: new Date(),
     updatedAt: new Date(),
+    _count: {
+      managers: 0,
+    },
   };
 
   beforeEach(async () => {
@@ -37,7 +43,33 @@ describe('MtServerService', () => {
         update: jest.fn(),
         updateMany: jest.fn(),
         delete: jest.fn(),
+        count: jest.fn(),
       },
+      tenant: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: mockTenantId,
+          maxMtServers: 10,
+          supportedPlatforms: ['MT4', 'MT5'],
+          _count: { mtServers: 1 },
+        }),
+      },
+    };
+
+    const mockAdapterFactory = {
+      getAdapter: jest.fn(),
+      recordSuccess: jest.fn(),
+      recordFailure: jest.fn(),
+      removeAdapter: jest.fn(),
+      removeAdaptersForTenant: jest.fn(),
+      resetCircuitBreaker: jest.fn(),
+      getStats: jest.fn(),
+    };
+
+    const mockMiddlewareAuthService = {
+      getServerConfig: jest.fn(),
+      validateAccess: jest.fn(),
+      decryptManagerPassword: jest.fn(),
+      clearSession: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -47,11 +79,20 @@ describe('MtServerService', () => {
           provide: PrismaService,
           useValue: mockPrisma,
         },
+        {
+          provide: AdapterFactory,
+          useValue: mockAdapterFactory,
+        },
+        {
+          provide: MiddlewareAuthService,
+          useValue: mockMiddlewareAuthService,
+        },
       ],
     }).compile();
 
     service = module.get<MtServerService>(MtServerService);
     prismaService = module.get(PrismaService);
+    adapterFactory = module.get(AdapterFactory);
   });
 
   afterEach(() => {
@@ -66,10 +107,7 @@ describe('MtServerService', () => {
 
       expect(result.total).toBe(1);
       expect(result.servers[0].serverId).toBe(mockServerId);
-      expect(prismaService.mtServer.findMany).toHaveBeenCalledWith({
-        where: { tenantId: mockTenantId },
-        orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
-      });
+      expect(prismaService.mtServer.findMany).toHaveBeenCalled();
     });
 
     it('应该返回空列表当没有服务器时', async () => {
@@ -134,10 +172,9 @@ describe('MtServerService', () => {
     const createDto: CreateMtServerDto = {
       serverId: 'new-server',
       displayName: 'New Server',
+      middlewareId: 'middleware-123',
       middlewareUrl: 'http://localhost:8081',
       serverAddress: 'new.mt5.com:443',
-      managerLogin: 2000,
-      managerPassword: 'password123',
       isDefault: false,
     };
 

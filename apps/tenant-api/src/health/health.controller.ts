@@ -69,6 +69,27 @@ export class HealthController {
     };
   }
 
+  /**
+   * 存活检查 (Liveness Probe) - K8s 命名约定
+   * 别名端点，与 /health 相同
+   */
+  @Get('live')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '存活检查', description: '检查应用是否存活 (K8s liveness probe)' })
+  @ApiResponse({ status: 200, description: '服务存活' })
+  @ApiResponse({ status: 503, description: '服务不可用' })
+  async livenessCheck(): Promise<{ status: string; timestamp: Date }> {
+    const isHealthy = await this.healthService.isHealthy();
+    if (!isHealthy) {
+      throw new ForbiddenException('服务不可用');
+    }
+    return {
+      status: 'alive',
+      timestamp: new Date(),
+    };
+  }
+
   // ============================================================
   // 系统级健康状态
   // ============================================================

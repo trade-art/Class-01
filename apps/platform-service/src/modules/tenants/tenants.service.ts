@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   CreateTenantDto,
@@ -10,10 +10,21 @@ import {
 } from './dto/tenant.dto';
 import { Tenant, Prisma, TenantStatus as PrismaTenantStatus } from '@prisma/client';
 import { BusinessException, ErrorCodes } from '../../common/exceptions';
+import { MiddlewareClientService } from '../middleware-integration/services/middleware-client.service';
+
+/**
+ * 经理账号连接状态
+ */
+export type ManagerStatus = 'CONNECTED' | 'DISCONNECTED' | 'NOT_CONFIGURED';
 
 @Injectable()
 export class TenantsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(TenantsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly middlewareClient: MiddlewareClientService,
+  ) {}
 
   async create(createTenantDto: CreateTenantDto): Promise<Tenant> {
     // Check if code already exists
@@ -93,7 +104,7 @@ export class TenantsService {
     };
   }
 
-  async findOne(id: string): Promise<Tenant> {
+  async findOne(id: string): Promise<any> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id },
       include: {
@@ -114,8 +125,27 @@ export class TenantsService {
             name: true,
             host: true,
             port: true,
+            platformType: true,
             status: true,
             lastHealthCheck: true,
+          },
+        },
+        middlewareAssignments: {
+          select: {
+            id: true,
+            middlewareId: true,
+            assignedAt: true,
+            assignedBy: true,
+            middleware: {
+              select: {
+                id: true,
+                name: true,
+                url: true,
+                platformType: true,
+                status: true,
+                assignmentMode: true,
+              },
+            },
           },
         },
         _count: {
@@ -132,7 +162,182 @@ export class TenantsService {
       throw new NotFoundException(`Tenant with ID '${id}' not found`);
     }
 
-    return tenant;
+    // 获取租户的经理账号配置状态
+    const managerInfo = await this.getManagerConfigStatus(id);
+
+    // 为每个中间件分配添加经理账号连接状态（使用真实认证测试）
+    const middlewareAssignmentsWithStatus = await Promise.all(
+      tenant.middlewareAssignments.map(async (assignment) => {
+        const managerStatus = await this.determineManagerStatus(
+          managerInfo.hasActiveManager,
+          assignment.middleware?.status || 'OFFLINE',
+          assignment.middleware?.url || '',
+          id,
+        );
+        return {
+          ...assignment,
+          managerStatus,
+          defaultManagerLogin: managerInfo.defaultManagerLogin,
+        };
+      }),
+    );
+
+    return {
+      ...tenant,
+      middlewareAssignments: middlewareAssignmentsWithStatus,
+    };
+  }
+
+  /**
+   * 获取租户的经理账号配置状态
+   */
+  private async getManagerConfigStatus(
+    tenantId: string,
+  ): Promise<{ hasActiveManager: boolean; defaultManagerLogin?: string }> {
+    // 查询租户是否有活跃的默认经理账号
+    const defaultManager = await this.prisma.mtManager.findFirst({
+      where: {
+        tenantId,
+        isActive: true,
+        isDefault: true,
+      },
+      select: {
+        managerLogin: true,
+      },
+    });
+
+    if (defaultManager) {
+      return {
+        hasActiveManager: true,
+        defaultManagerLogin: defaultManager.managerLogin.toString(),
+      };
+    }
+
+    // 如果没有默认经理账号，检查是否有任何活跃的经理账号
+    const anyActiveManager = await this.prisma.mtManager.findFirst({
+      where: {
+        tenantId,
+        isActive: true,
+      },
+      select: {
+        managerLogin: true,
+      },
+    });
+
+    return {
+      hasActiveManager: !!anyActiveManager,
+      defaultManagerLogin: anyActiveManager?.managerLogin.toString(),
+    };
+  }
+
+  /**
+   * 判断经理账号连接状态（真实认证测试）
+   * - NOT_CONFIGURED: 未配置活跃的经理账号
+   * - CONNECTED: 有经理账号且 MT5 API 认证成功
+   * - DISCONNECTED: 有经理账号但 MT5 API 认证失败或中间件离线
+   */
+  private async determineManagerStatus(
+    hasActiveManager: boolean,
+    middlewareStatus: string,
+    middlewareUrl: string,
+    tenantId: string,
+  ): Promise<ManagerStatus> {
+    if (!hasActiveManager) {
+      return 'NOT_CONFIGURED';
+    }
+
+    if (middlewareStatus !== 'ONLINE') {
+      return 'DISCONNECTED';
+    }
+
+    // 中间件在线时，测试真实的 MT5 API 认证状态
+    try {
+      const isAuthenticated = await this.testTenantAuthentication(
+        middlewareUrl,
+        tenantId,
+      );
+      return isAuthenticated ? 'CONNECTED' : 'DISCONNECTED';
+    } catch (error) {
+      this.logger.warn(
+        `测试租户 ${tenantId} 的 MT5 认证状态失败: ${error.message}`,
+      );
+      return 'DISCONNECTED';
+    }
+  }
+
+  /**
+   * 测试租户的 MT5 API 认证
+   * 获取租户的 MT 服务器配置和经理账号，调用中间件进行真实认证测试
+   */
+  private async testTenantAuthentication(
+    middlewareUrl: string,
+    tenantId: string,
+  ): Promise<boolean> {
+    // 获取租户的默认 MT 服务器配置
+    const mtServer = await this.prisma.mtServer.findFirst({
+      where: {
+        tenantId,
+        isActive: true,
+        isDefault: true,
+      },
+      include: {
+        managers: {
+          where: {
+            isActive: true,
+            isDefault: true,
+          },
+          take: 1,
+        },
+      },
+    });
+
+    // 如果没有默认服务器，尝试获取任意活跃服务器
+    const serverConfig = mtServer ?? await this.prisma.mtServer.findFirst({
+      where: {
+        tenantId,
+        isActive: true,
+      },
+      include: {
+        managers: {
+          where: {
+            isActive: true,
+          },
+          take: 1,
+        },
+      },
+    });
+
+    if (!serverConfig || serverConfig.managers.length === 0) {
+      this.logger.debug(`租户 ${tenantId} 没有配置活跃的 MT 服务器或经理账号`);
+      return false;
+    }
+
+    const manager = serverConfig.managers[0];
+
+    // 解密经理账号密码
+    const managerPassword = this.decryptManagerPassword(
+      manager.managerPasswordEncrypted,
+    );
+
+    // 调用中间件测试认证
+    return this.middlewareClient.testAuthentication(
+      middlewareUrl,
+      Number(manager.managerLogin),
+      managerPassword,
+      serverConfig.serverAddress,
+      serverConfig.serverId,
+      tenantId,
+    );
+  }
+
+  /**
+   * 解密经理账号密码
+   * TODO: 实现真正的解密逻辑
+   */
+  private decryptManagerPassword(encryptedPassword: string): string {
+    // 目前密码是明文存储的，直接返回
+    // TODO: 使用加密服务解密
+    return encryptedPassword;
   }
 
   async findByCode(code: string): Promise<Tenant> {
@@ -183,19 +388,39 @@ export class TenantsService {
   async activate(id: string): Promise<Tenant> {
     await this.findOne(id);
 
-    return this.prisma.tenant.update({
-      where: { id },
-      data: { status: 'ACTIVE' },
-    });
+    // 使用事务同时更新租户状态和实例状态
+    const [tenant] = await this.prisma.$transaction([
+      this.prisma.tenant.update({
+        where: { id },
+        data: { status: 'ACTIVE' },
+      }),
+      // 将所有 SUSPENDED 状态的实例恢复为 OFFLINE（等待健康检查）
+      this.prisma.middlewareInstance.updateMany({
+        where: { tenantId: id, status: 'SUSPENDED' },
+        data: { status: 'OFFLINE' },
+      }),
+    ]);
+
+    return tenant;
   }
 
   async suspend(id: string): Promise<Tenant> {
     await this.findOne(id);
 
-    return this.prisma.tenant.update({
-      where: { id },
-      data: { status: 'SUSPENDED' },
-    });
+    // 使用事务同时更新租户状态和实例状态
+    const [tenant] = await this.prisma.$transaction([
+      this.prisma.tenant.update({
+        where: { id },
+        data: { status: 'SUSPENDED' },
+      }),
+      // 将所有实例状态设为 SUSPENDED
+      this.prisma.middlewareInstance.updateMany({
+        where: { tenantId: id },
+        data: { status: 'SUSPENDED' },
+      }),
+    ]);
+
+    return tenant;
   }
 
   async getStats(): Promise<{
@@ -228,6 +453,25 @@ export class TenantsService {
       suspended,
       byPlan: planStats,
     };
+  }
+
+  /**
+   * 获取租户关联数据统计（用于删除确认）
+   */
+  async getRelatedDataCount(id: string): Promise<{
+    instances: number;
+    admins: number;
+    mtServers: number;
+  }> {
+    await this.findOne(id);
+
+    const [instances, admins, mtServers] = await Promise.all([
+      this.prisma.middlewareInstance.count({ where: { tenantId: id } }),
+      this.prisma.tenantAdmin.count({ where: { tenantId: id } }),
+      this.prisma.mtServer.count({ where: { tenantId: id } }),
+    ]);
+
+    return { instances, admins, mtServers };
   }
 
   // ==================== REQ-3: 白标配置 ====================
@@ -301,7 +545,7 @@ export class TenantsService {
         {
           currentStatus: tenant.status,
           targetStatus,
-          allowedTransitions: this.statusTransitions[tenant.status],
+          allowedTransitions: this.statusTransitions[tenant.status as PrismaTenantStatus],
         },
       );
     }

@@ -1,0 +1,12 @@
+{
+  "id": "approval_1764946463452_wcta657hx",
+  "title": "Security Hardening Requirements",
+  "filePath": ".spec-workflow/specs/security-hardening/requirements.md",
+  "type": "document",
+  "status": "approved",
+  "createdAt": "2025-12-05T14:54:23.452Z",
+  "category": "spec",
+  "categoryName": "security-hardening",
+  "response": "通过仪表板批准",
+  "respondedAt": "2025-12-05T14:54:41.064Z"
+}

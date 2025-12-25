@@ -1,10 +1,11 @@
-import { Module, Global } from '@nestjs/common';
+import { Module, Global, forwardRef } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MiddlewareProxyService } from './middleware-proxy.service';
 import { ResponseTransformer } from './transformers';
 import { MiddlewareAuthService, MtServerService, TradingService } from './services';
 import { AdapterFactory } from './adapters';
+import { AuthModule } from '../auth/auth.module';
 
 /**
  * 中间件代理模块
@@ -25,6 +26,8 @@ import { AdapterFactory } from './adapters';
         },
       }),
     }),
+    // 导入 AuthModule 以获取 ServiceTokenService
+    forwardRef(() => AuthModule),
   ],
   providers: [
     ResponseTransformer,

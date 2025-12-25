@@ -1,0 +1,12 @@
+{
+  "id": "approval_1764946462229_fqz8ldy99",
+  "title": "Production Deployment Requirements",
+  "filePath": ".spec-workflow/specs/production-deployment/requirements.md",
+  "type": "document",
+  "status": "approved",
+  "createdAt": "2025-12-05T14:54:22.229Z",
+  "category": "spec",
+  "categoryName": "production-deployment",
+  "response": "通过仪表板批准",
+  "respondedAt": "2025-12-05T14:55:08.642Z"
+}

@@ -17,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { SkipInstanceCheck } from '../auth/decorators/skip-instance-check.decorator';
 import { SettingsService } from './settings.service';
 import {
   BrandingDto,
@@ -35,6 +36,7 @@ import {
   NotificationSettingsDto,
   UpdateNotificationSettingsDto,
   MT5ServerInfoDto,
+  SubscriptionStatusDto,
 } from './dto';
 
 @ApiTags('设置')
@@ -49,6 +51,7 @@ export class SettingsController {
 
   @Get('branding')
   @Roles('owner', 'admin', 'operator')
+  @SkipInstanceCheck()
   @ApiOperation({ summary: '获取白标配置' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -61,6 +64,7 @@ export class SettingsController {
 
   @Put('branding')
   @Roles('owner')
+  @SkipInstanceCheck()
   @ApiOperation({ summary: '更新白标配置' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -80,6 +84,7 @@ export class SettingsController {
 
   @Get('admins')
   @Roles('owner')
+  @SkipInstanceCheck()
   @ApiOperation({ summary: '获取管理员列表' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -94,6 +99,7 @@ export class SettingsController {
 
   @Post('admins')
   @Roles('owner')
+  @SkipInstanceCheck()
   @ApiOperation({ summary: '创建管理员' })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -109,6 +115,7 @@ export class SettingsController {
 
   @Put('admins/:id')
   @Roles('owner')
+  @SkipInstanceCheck()
   @ApiOperation({ summary: '更新管理员' })
   @ApiParam({ name: 'id', description: '管理员 ID' })
   @ApiResponse({
@@ -126,6 +133,7 @@ export class SettingsController {
 
   @Post('admins/:id/reset-password')
   @Roles('owner')
+  @SkipInstanceCheck()
   @ApiOperation({ summary: '重置管理员密码' })
   @ApiParam({ name: 'id', description: '管理员 ID' })
   @ApiResponse({
@@ -146,6 +154,7 @@ export class SettingsController {
 
   @Put('admins/:id/status')
   @Roles('owner')
+  @SkipInstanceCheck()
   @ApiOperation({ summary: '切换管理员状态' })
   @ApiParam({ name: 'id', description: '管理员 ID' })
   @ApiResponse({
@@ -168,6 +177,7 @@ export class SettingsController {
 
   @Delete('admins/:id')
   @Roles('owner')
+  @SkipInstanceCheck()
   @ApiOperation({ summary: '删除管理员' })
   @ApiParam({ name: 'id', description: '管理员 ID' })
   @ApiResponse({
@@ -187,6 +197,7 @@ export class SettingsController {
 
   @Get('api-keys')
   @Roles('owner', 'admin')
+  @SkipInstanceCheck()
   @ApiOperation({ summary: '获取 API 密钥列表' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -201,6 +212,7 @@ export class SettingsController {
 
   @Post('api-keys')
   @Roles('owner', 'admin')
+  @SkipInstanceCheck()
   @ApiOperation({ summary: '创建 API 密钥' })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -216,6 +228,7 @@ export class SettingsController {
 
   @Put('api-keys/:id/permissions')
   @Roles('owner', 'admin')
+  @SkipInstanceCheck()
   @ApiOperation({ summary: '更新 API 密钥权限' })
   @ApiParam({ name: 'id', description: 'API 密钥 ID' })
   @ApiResponse({
@@ -233,6 +246,7 @@ export class SettingsController {
 
   @Post('api-keys/:id/regenerate')
   @Roles('owner', 'admin')
+  @SkipInstanceCheck()
   @ApiOperation({ summary: '重新生成 API 密钥' })
   @ApiParam({ name: 'id', description: 'API 密钥 ID' })
   @ApiResponse({
@@ -249,6 +263,7 @@ export class SettingsController {
 
   @Put('api-keys/:id/status')
   @Roles('owner', 'admin')
+  @SkipInstanceCheck()
   @ApiOperation({ summary: '切换 API 密钥状态' })
   @ApiParam({ name: 'id', description: 'API 密钥 ID' })
   @ApiResponse({
@@ -270,6 +285,7 @@ export class SettingsController {
 
   @Delete('api-keys/:id')
   @Roles('owner', 'admin')
+  @SkipInstanceCheck()
   @ApiOperation({ summary: '删除 API 密钥' })
   @ApiParam({ name: 'id', description: 'API 密钥 ID' })
   @ApiResponse({
@@ -289,6 +305,7 @@ export class SettingsController {
 
   @Get('notifications')
   @Roles('owner', 'admin')
+  @SkipInstanceCheck()
   @ApiOperation({ summary: '获取通知设置' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -303,6 +320,7 @@ export class SettingsController {
 
   @Put('notifications')
   @Roles('owner', 'admin')
+  @SkipInstanceCheck()
   @ApiOperation({ summary: '更新通知设置' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -332,5 +350,38 @@ export class SettingsController {
     @CurrentUser() user: JwtPayload,
   ): Promise<MT5ServerInfoDto> {
     return this.settingsService.getMT5ServerInfo(user.instanceId);
+  }
+
+  // ============================================
+  // Subscription & Quota (订阅与配额)
+  // ============================================
+
+  @Get('subscription')
+  @Roles('owner', 'admin', 'operator')
+  @SkipInstanceCheck()
+  @ApiOperation({ summary: '获取订阅状态与配额使用情况' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: '成功获取订阅状态',
+    type: SubscriptionStatusDto,
+  })
+  async getSubscriptionStatus(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<SubscriptionStatusDto> {
+    return this.settingsService.getSubscriptionStatus(user.tenantId);
+  }
+
+  @Get('admins/can-add')
+  @Roles('owner')
+  @SkipInstanceCheck()
+  @ApiOperation({ summary: '检查是否可以添加管理员' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: '配额检查结果',
+  })
+  async canAddAdmin(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{ canAdd: boolean; message?: string }> {
+    return this.settingsService.canAddAdmin(user.tenantId);
   }
 }

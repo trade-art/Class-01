@@ -2,6 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { AdapterFactory } from './adapter.factory';
 import { PlatformType, MtServerConfig } from './types';
 import { MT5Adapter } from './mt5.adapter';
+import { MT4Adapter } from './mt4.adapter';
 
 describe('AdapterFactory', () => {
   let factory: AdapterFactory;
@@ -87,14 +88,156 @@ describe('AdapterFactory', () => {
       expect(adapter1).not.toBe(adapter2);
     });
 
-    it('不支持的平台类型应该抛出异常', async () => {
+    it('应该创建 MT4 适配器', async () => {
       const config = createMockServerConfig({
         platformType: PlatformType.MT4,
       });
 
+      const adapter = await factory.getAdapter(config);
+
+      expect(adapter).toBeInstanceOf(MT4Adapter);
+      expect(adapter.platformType).toBe(PlatformType.MT4);
+    });
+
+    it('不支持的平台类型应该抛出异常', async () => {
+      const config = createMockServerConfig({
+        platformType: 'UNKNOWN' as PlatformType,
+      });
+
       await expect(factory.getAdapter(config)).rejects.toThrow(
-        'MT4 adapter not implemented yet',
+        'Unsupported platform type: UNKNOWN',
       );
+    });
+  });
+
+  describe('混合平台测试', () => {
+    it('应该同时管理 MT5 和 MT4 适配器', async () => {
+      const mt5Config = createMockServerConfig({
+        tenantId: 'tenant-1',
+        serverId: 'mt5-server',
+        platformType: PlatformType.MT5,
+      });
+
+      const mt4Config = createMockServerConfig({
+        tenantId: 'tenant-1',
+        serverId: 'mt4-server',
+        platformType: PlatformType.MT4,
+      });
+
+      const mt5Adapter = await factory.getAdapter(mt5Config);
+      const mt4Adapter = await factory.getAdapter(mt4Config);
+
+      expect(mt5Adapter).toBeInstanceOf(MT5Adapter);
+      expect(mt4Adapter).toBeInstanceOf(MT4Adapter);
+      expect(mt5Adapter).not.toBe(mt4Adapter);
+
+      const stats = factory.getStats();
+      expect(stats.totalAdapters).toBe(2);
+      expect(stats.byPlatform[PlatformType.MT5]).toBe(1);
+      expect(stats.byPlatform[PlatformType.MT4]).toBe(1);
+    });
+
+    it('同一租户可以同时拥有 MT5 和 MT4 服务器', async () => {
+      const configs = [
+        createMockServerConfig({
+          tenantId: 'tenant-multi',
+          serverId: 'mt5-demo',
+          platformType: PlatformType.MT5,
+        }),
+        createMockServerConfig({
+          tenantId: 'tenant-multi',
+          serverId: 'mt5-real',
+          platformType: PlatformType.MT5,
+        }),
+        createMockServerConfig({
+          tenantId: 'tenant-multi',
+          serverId: 'mt4-demo',
+          platformType: PlatformType.MT4,
+        }),
+        createMockServerConfig({
+          tenantId: 'tenant-multi',
+          serverId: 'mt4-real',
+          platformType: PlatformType.MT4,
+        }),
+      ];
+
+      const adapters = await Promise.all(
+        configs.map((config) => factory.getAdapter(config)),
+      );
+
+      expect(adapters).toHaveLength(4);
+      expect(adapters.filter((a) => a instanceof MT5Adapter)).toHaveLength(2);
+      expect(adapters.filter((a) => a instanceof MT4Adapter)).toHaveLength(2);
+
+      const stats = factory.getStats();
+      expect(stats.totalAdapters).toBe(4);
+      expect(stats.byTenant['tenant-multi']).toBe(4);
+      expect(stats.byPlatform[PlatformType.MT5]).toBe(2);
+      expect(stats.byPlatform[PlatformType.MT4]).toBe(2);
+    });
+
+    it('移除租户时应该同时移除所有平台的适配器', async () => {
+      await factory.getAdapter(
+        createMockServerConfig({
+          tenantId: 'tenant-remove',
+          serverId: 'mt5-server',
+          platformType: PlatformType.MT5,
+        }),
+      );
+
+      await factory.getAdapter(
+        createMockServerConfig({
+          tenantId: 'tenant-remove',
+          serverId: 'mt4-server',
+          platformType: PlatformType.MT4,
+        }),
+      );
+
+      await factory.getAdapter(
+        createMockServerConfig({
+          tenantId: 'tenant-keep',
+          serverId: 'mt5-server',
+          platformType: PlatformType.MT5,
+        }),
+      );
+
+      expect(factory.getStats().totalAdapters).toBe(3);
+
+      const removedCount = await factory.removeAdaptersByTenant('tenant-remove');
+
+      expect(removedCount).toBe(2);
+      expect(factory.getStats().totalAdapters).toBe(1);
+      expect(factory.getStats().byTenant['tenant-keep']).toBe(1);
+    });
+
+    it('每个平台的适配器应该独立缓存', async () => {
+      // 注意：每个 serverId 对应一个唯一的服务器实例
+      // 实际场景中，MT5 和 MT4 服务器是不同的服务器，应该有不同的 serverId
+      const mt5Config = createMockServerConfig({
+        tenantId: 'tenant-1',
+        serverId: 'mt5-server-1',
+        platformType: PlatformType.MT5,
+        middlewareUrl: 'http://mt5-middleware:8080',
+      });
+
+      const mt4Config = createMockServerConfig({
+        tenantId: 'tenant-1',
+        serverId: 'mt4-server-1',
+        platformType: PlatformType.MT4,
+        middlewareUrl: 'http://mt4-middleware:8080',
+      });
+
+      const mt5Adapter1 = await factory.getAdapter(mt5Config);
+      const mt4Adapter1 = await factory.getAdapter(mt4Config);
+      const mt5Adapter2 = await factory.getAdapter(mt5Config);
+      const mt4Adapter2 = await factory.getAdapter(mt4Config);
+
+      // 相同配置应该返回相同实例
+      expect(mt5Adapter1).toBe(mt5Adapter2);
+      expect(mt4Adapter1).toBe(mt4Adapter2);
+
+      // 不同平台应该返回不同实例
+      expect(mt5Adapter1).not.toBe(mt4Adapter1);
     });
   });
 

@@ -48,19 +48,18 @@
                 </n-descriptions>
               </n-card>
 
-              <n-card :title="t('tenant.instances.title')">
+              <n-card :title="t('tenant.middlewareAssignments.title')">
                 <template #header-extra>
-                  <n-button type="primary" size="small" @click="showInstanceModal = true">
+                  <n-button type="primary" size="small" @click="showAssignMiddlewareModal = true">
                     <template #icon>
                       <n-icon><i class="i-carbon-add" /></n-icon>
                     </template>
-                    {{ t('tenant.instances.add') }}
+                    {{ t('tenant.middlewareAssignments.assign') }}
                   </n-button>
                 </template>
-
                 <n-data-table
-                  :columns="instanceColumns"
-                  :data="tenant?.instances || []"
+                  :columns="assignmentColumns"
+                  :data="tenant?.middlewareAssignments || []"
                   :pagination="false"
                 />
               </n-card>
@@ -362,6 +361,46 @@
         </n-button>
       </template>
     </n-modal>
+
+    <!-- Assign Middleware Modal -->
+    <n-modal
+      v-model:show="showAssignMiddlewareModal"
+      preset="dialog"
+      :title="t('tenant.middlewareAssignments.assign')"
+      :style="{ width: '500px' }"
+      :mask-closable="false"
+      @after-enter="loadAvailableMiddlewares"
+    >
+      <n-spin :show="loadingMiddlewares">
+        <n-form label-placement="top">
+          <n-form-item :label="t('tenant.middlewareAssignments.selectMiddleware')">
+            <n-select
+              v-model:value="selectedMiddlewareId"
+              :options="middlewareOptions"
+              :placeholder="t('tenant.middlewareAssignments.selectMiddlewarePlaceholder')"
+              filterable
+            />
+          </n-form-item>
+        </n-form>
+        <n-empty
+          v-if="!loadingMiddlewares && availableMiddlewares.length === 0"
+          :description="t('tenant.middlewareAssignments.noAvailableMiddleware')"
+          size="small"
+        />
+      </n-spin>
+
+      <template #action>
+        <n-button @click="showAssignMiddlewareModal = false">{{ t('common.cancel') }}</n-button>
+        <n-button
+          type="primary"
+          :loading="assigningMiddleware"
+          :disabled="!selectedMiddlewareId"
+          @click="handleAssignMiddleware"
+        >
+          {{ t('common.confirm') }}
+        </n-button>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -387,6 +426,7 @@ import {
   NInput,
   NInputNumber,
   NSwitch,
+  NSelect,
   NTabs,
   NTabPane,
   NDropdown,
@@ -402,6 +442,8 @@ import {
   type UploadCustomRequestOptions,
 } from 'naive-ui'
 import { api } from '@/api'
+import { middlewareApi } from '@/api/middleware'
+import { middlewareAssignmentApi } from '@/api/middleware-assignment'
 import dayjs from 'dayjs'
 
 interface TenantAdmin {
@@ -464,6 +506,13 @@ const changingPlan = ref(false)
 const subscriptionPlans = ref<any[]>([])
 const selectedPlan = ref<string | null>(null)
 
+// Middleware assignment
+const showAssignMiddlewareModal = ref(false)
+const loadingMiddlewares = ref(false)
+const assigningMiddleware = ref(false)
+const availableMiddlewares = ref<any[]>([])
+const selectedMiddlewareId = ref<string | null>(null)
+
 const adminRules = computed<FormRules>(() => ({
   name: [{ required: true, message: t('tenantAdmin.nameRequired'), trigger: 'blur' }],
   email: [
@@ -491,25 +540,87 @@ const passwordRules = computed<FormRules>(() => ({
   ],
 }))
 
-const instanceColumns = computed<DataTableColumns<any>>(() => [
-  { title: t('instance.name'), key: 'name' },
+// 获取经理账号连接状态标签类型
+function getManagerStatusType(status: string): 'success' | 'error' | 'warning' | 'default' {
+  switch (status) {
+    case 'CONNECTED':
+      return 'success'
+    case 'DISCONNECTED':
+      return 'error'
+    case 'NOT_CONFIGURED':
+      return 'warning'
+    default:
+      return 'default'
+  }
+}
+
+// 中间件分配表格列
+const assignmentColumns = computed<DataTableColumns<any>>(() => [
   {
-    title: t('instance.host'),
-    key: 'host',
-    render: (row) => `${row.host}:${row.port}`,
+    title: t('middleware.name'),
+    key: 'middleware.name',
+    render: (row) => row.middleware?.name || '-',
+  },
+  {
+    title: 'URL',
+    key: 'middleware.url',
+    ellipsis: { tooltip: true },
+    render: (row) => row.middleware?.url || '-',
+  },
+  {
+    title: t('instance.platformType'),
+    key: 'middleware.platformType',
+    width: 100,
+    render: (row) => h(NTag, {
+      type: row.middleware?.platformType === 'MT5' ? 'info' : 'warning',
+      size: 'small',
+    }, () => row.middleware?.platformType || 'MT5'),
   },
   {
     title: t('common.status'),
-    key: 'status',
-    render: (row) => h(NTag, {
-      type: row.status === 'ONLINE' ? 'success' : row.status === 'OFFLINE' ? 'warning' : 'error',
-      size: 'small',
-    }, () => t(`instance.status.${row.status?.toLowerCase()}`)),
+    key: 'middleware.status',
+    width: 80,
+    render: (row) => {
+      const status = row.middleware?.status
+      const typeMap: Record<string, 'success' | 'error' | 'warning' | 'default'> = {
+        ONLINE: 'success',
+        OFFLINE: 'error',
+        DEGRADED: 'warning',
+      }
+      return h(NTag, {
+        type: typeMap[status] || 'default',
+        size: 'small',
+      }, () => t(`middleware.status.${status?.toLowerCase()}`) || status)
+    },
   },
   {
-    title: t('instance.lastHealthCheck'),
-    key: 'lastHealthCheck',
-    render: (row) => row.lastHealthCheck ? formatDate(row.lastHealthCheck) : '-',
+    title: t('tenant.middlewareAssignments.connection'),
+    key: 'managerStatus',
+    width: 100,
+    render: (row) => {
+      const status = row.managerStatus || 'NOT_CONFIGURED'
+      return h(NTag, {
+        type: getManagerStatusType(status),
+        size: 'small',
+      }, () => t(`tenant.middlewareAssignments.managerStatus.${status}`))
+    },
+  },
+  {
+    title: t('tenant.middlewareAssignments.assignedAt'),
+    key: 'assignedAt',
+    width: 160,
+    render: (row) => row.assignedAt ? formatDate(row.assignedAt) : '-',
+  },
+  {
+    title: t('common.actions'),
+    key: 'actions',
+    width: 100,
+    render: (row) => h(NButton, {
+      text: true,
+      type: 'error',
+      size: 'small',
+      onClick: () => handleUnassignMiddleware(row),
+    }, () => t('tenant.middlewareAssignments.unassign')),
   },
 ])
 
@@ -721,6 +832,35 @@ async function handleResetPassword() {
   }
 }
 
+function handleUnassignMiddleware(assignment: any) {
+  // 验证数据完整性
+  if (!assignment.middlewareId || !assignment.middleware) {
+    message.error(t('common.dataIncomplete'))
+    return
+  }
+
+  const middlewareName = assignment.middleware.name || assignment.middleware.url
+  const tenantName = tenant.value?.name || ''
+
+  // 二次确认弹窗
+  dialog.warning({
+    title: t('common.confirmAction'),
+    content: t('tenant.middlewareAssignments.confirmUnassign', { tenant: tenantName, middleware: middlewareName }),
+    positiveText: t('tenant.middlewareAssignments.unassign'),
+    negativeText: t('common.cancel'),
+    positiveButtonProps: { type: 'error' },
+    onPositiveClick: async () => {
+      try {
+        await middlewareAssignmentApi.unassign(assignment.middlewareId, tenantId)
+        message.success(t('tenant.middlewareAssignments.unassignSuccess'))
+        loadTenant()
+      } catch (error: any) {
+        message.error(error.message || t('common.operationFailed'))
+      }
+    },
+  })
+}
+
 function initWhitelabelForm() {
   if (tenant.value?.whitelabelConfig) {
     whitelabelForm.companyName = tenant.value.whitelabelConfig.companyName || ''
@@ -791,6 +931,51 @@ async function handleChangePlan() {
     message.error(error.message || t('common.operationFailed'))
   } finally {
     changingPlan.value = false
+  }
+}
+
+// Middleware assignment
+const middlewareOptions = computed(() => {
+  // 获取当前租户已分配的中间件ID列表
+  const assignedIds = (tenant.value?.middlewareAssignments || []).map((a: any) => a.middlewareId)
+
+  return availableMiddlewares.value.map((m) => {
+    const isAlreadyAssigned = assignedIds.includes(m.id)
+    return {
+      label: isAlreadyAssigned ? `${m.name} (${t('tenant.middlewareAssignments.alreadyAssigned')})` : `${m.name} (${m.availableSlots} 可用)`,
+      value: m.id,
+      disabled: !m.canAssign || isAlreadyAssigned,
+    }
+  })
+})
+
+async function loadAvailableMiddlewares() {
+  loadingMiddlewares.value = true
+  try {
+    const result = await middlewareApi.getAvailable()
+    availableMiddlewares.value = Array.isArray(result) ? result : []
+    selectedMiddlewareId.value = null
+  } catch {
+    availableMiddlewares.value = []
+  } finally {
+    loadingMiddlewares.value = false
+  }
+}
+
+async function handleAssignMiddleware() {
+  if (!selectedMiddlewareId.value) return
+
+  assigningMiddleware.value = true
+  try {
+    await middlewareAssignmentApi.assign(selectedMiddlewareId.value, { tenantId })
+    message.success(t('tenant.middlewareAssignments.assignSuccess'))
+    showAssignMiddlewareModal.value = false
+    selectedMiddlewareId.value = null
+    loadTenant()
+  } catch (error: any) {
+    message.error(error.message || t('common.operationFailed'))
+  } finally {
+    assigningMiddleware.value = false
   }
 }
 

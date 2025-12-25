@@ -71,6 +71,11 @@ export class CreateInstanceDto {
   @IsOptional()
   port?: number = 8080;
 
+  @ApiPropertyOptional({ example: '192.168.1.100', description: 'MT Server IP address' })
+  @IsString()
+  @IsOptional()
+  serverIp?: string;
+
   @ApiPropertyOptional({ type: [MT5ServerConfigDto] })
   @IsArray()
   @ValidateNested({ each: true })

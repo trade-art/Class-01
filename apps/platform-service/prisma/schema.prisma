@@ -61,6 +61,12 @@ model Tenant {
   maxInstances Int              @default(1)
   maxAdmins    Int              @default(3)
 
+  // MT Server limits (managed by tenant)
+  maxMtServers       Int      @default(1) @map("max_mt_servers")       // 最大 MT 服务器数量
+  maxManagerAccounts Int      @default(5) @map("max_manager_accounts") // 最大Manager数（所有实例共享）
+  maxSessions        Int      @default(100) @map("max_sessions")       // 最大会话数（实例可覆盖）
+  supportedPlatforms String[] @default(["MT5"]) @map("supported_platforms") // 支持的平台类型 (MT4, MT5)
+
   // Billing
   billingEmail String?
   billingCycle BillingCycle @default(MONTHLY)
@@ -74,12 +80,13 @@ model Tenant {
   expiresAt DateTime?
 
   // Relations
-  admins    TenantAdmin[]
-  instances MiddlewareInstance[]
-  invoices  Invoice[]
-  apiKeys   ApiKey[]
-  mtServers MtServer[]
-  domains   TenantDomain[]
+  admins                TenantAdmin[]
+  instances             MiddlewareInstance[]
+  invoices              Invoice[]
+  apiKeys               ApiKey[]
+  mtServers             MtServer[]
+  domains               TenantDomain[]
+  middlewareAssignments MiddlewareAssignment[]
 
   @@map("tenants")
 }
@@ -115,20 +122,22 @@ enum BillingCycle {
 // Tenant Admin (B2B Customer's Admin)
 // ============================================
 model TenantAdmin {
-  id        String     @id @default(uuid())
-  tenantId  String
-  email     String
-  password  String
-  name      String
-  role      TenantRole @default(ADMIN)
-  isActive  Boolean    @default(true)
-  lastLogin DateTime?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id          String     @id @default(uuid())
+  tenantId    String
+  email       String
+  password    String
+  name        String
+  role        TenantRole @default(ADMIN)
+  isActive    Boolean    @default(true)
+  lastLogin   DateTime?
+  lastLoginIp String?    @map("last_login_ip") // 最后登录 IP 地址
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([tenantId, email])
+  @@unique([email]) // 邮箱全局唯一，简化登录逻辑
+  @@index([tenantId]) // 保留租户索引用于查询
   @@map("tenant_admins")
 }
 
@@ -146,6 +155,12 @@ model MiddlewareInstance {
   tenantId    String
   name        String
   description String?
+
+  // Platform type (MT5 or MT4)
+  platformType PlatformType @default(MT5) @map("platform_type")
+
+  // MT Server IP address
+  serverIp String? @map("server_ip")
 
   // Connection info
   host   String
@@ -199,6 +214,7 @@ enum InstanceStatus {
   MAINTENANCE
   ERROR
   DEGRADED
+  SUSPENDED // 租户暂停时实例状态
 }
 
 // ============================================
@@ -269,31 +285,51 @@ enum InvoiceStatus {
 }
 
 // ============================================
-// API Keys for Tenant
+// API Keys for Tenant (Enhanced for middleware-auth-refactor)
 // ============================================
 model ApiKey {
   id        String @id @default(uuid())
-  tenantId  String
+  tenantId  String @map("tenant_id")
   name      String
-  key       String @unique
-  hashedKey String // Hashed version for storage
+  keyPrefix String @map("key_prefix") // First 8 characters of key for identification
+  hashedKey String @map("hashed_key") // SHA-256 hashed key for verification
 
-  // Permissions
-  permissions Json? // Array of allowed permissions
+  // Enhanced Permissions (middleware-auth-refactor Task 21)
+  scopes String[] @default(["*"]) // Permission scopes (e.g., ["trade:read", "account:*"])
+
+  // IP Whitelist (middleware-auth-refactor Task 21)
+  allowedIps String[] @default([]) @map("allowed_ips") // CIDR format supported (e.g., ["192.168.1.0/24"])
+
+  // Server binding (middleware-auth-refactor Task 21)
+  serverId String? @map("server_id") // Optional: Restrict to specific MT server
 
   // Limits
-  rateLimit Int @default(1000) // Requests per minute
+  rateLimit Int @default(1000) @map("rate_limit") // Requests per minute
+
+  // Usage Statistics (middleware-auth-refactor Task 21)
+  usageCount Int       @default(0) @map("usage_count") // Total API calls
+  lastUsedAt DateTime? @map("last_used_at")
+  lastUsedIp String?   @map("last_used_ip") // Last caller IP
 
   // Status
-  isActive   Boolean   @default(true)
-  lastUsedAt DateTime?
-  expiresAt  DateTime?
+  isActive  Boolean   @default(true) @map("is_active")
+  revokedAt DateTime? @map("revoked_at") // Timestamp when revoked
+  revokedBy String?   @map("revoked_by") // Admin who revoked
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // Expiration
+  expiresAt DateTime? @map("expires_at")
 
+  // Audit trail
+  createdBy String?  @map("created_by") // Admin who created
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
+  @@index([hashedKey])
+  @@index([keyPrefix])
   @@map("api_keys")
 }
 
@@ -399,32 +435,77 @@ model MtServer {
   platformType PlatformType @default(MT5) @map("platform_type")
 
   // Middleware Connection
-  middlewareUrl String @map("middleware_url") // e.g., http://localhost:8080
+  middlewareId  String? @map("middleware_id") // Reference to assigned Middleware instance
+  middlewareUrl String  @map("middleware_url") // e.g., http://localhost:8080 (derived from middleware or manual)
 
   // MT Server Connection (used by middleware)
-  serverAddress            String @map("server_address") // MT server address:port
-  managerLogin             BigInt @map("manager_login")
-  managerPasswordEncrypted String @map("manager_password_encrypted")
+  serverAddress String @map("server_address") // MT server address:port
 
   // Status
   isActive  Boolean @default(true) @map("is_active")
   isDefault Boolean @default(false) @map("is_default") // Default server for tenant
+
+  // Config version tracking (for change notification)
+  configVersion  Int       @default(1) @map("config_version")
+  lastModifiedAt DateTime  @default(now()) @map("last_modified_at")
+  lastModifiedBy String?   @map("last_modified_by") // Platform admin ID
 
   // Metadata
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  middleware Middleware?  @relation(fields: [middlewareId], references: [id], onDelete: SetNull)
+  managers   MtManager[]  // One server can have multiple manager accounts
 
   @@unique([tenantId, serverId])
   @@index([tenantId, isActive])
+  @@index([middlewareId])
   @@map("mt_servers")
 }
 
 enum PlatformType {
   MT5
   MT4
+}
+
+// ============================================
+// MT Manager Account (MT Server Manager Credentials)
+// ============================================
+model MtManager {
+  id                       String   @id @default(uuid())
+  tenantId                 String   @map("tenant_id")
+  mtServerId               String   @map("mt_server_id")
+  managerLogin             BigInt   @map("manager_login")
+  managerPasswordEncrypted String   @map("manager_password_encrypted")
+  displayName              String?  @map("display_name") // Friendly name for this manager account
+
+  // Status
+  isActive  Boolean @default(true) @map("is_active")
+  isDefault Boolean @default(false) @map("is_default") // Default manager for this server
+
+  // External API Key (for third-party applications)
+  apiKeyId           String?   @unique @map("api_key_id")      // Public identifier (e.g., mk_xxxx)
+  apiKeySecretHash   String?   @map("api_key_secret_hash")     // Hashed secret (bcrypt)
+  apiKeyEnabled      Boolean   @default(false) @map("api_key_enabled")
+  apiKeyAllowedIps   String[]  @default([]) @map("api_key_allowed_ips") // IP whitelist (CIDR supported)
+  apiKeyScopes       String[]  @default(["*"]) @map("api_key_scopes") // Permission scopes (e.g., ["trading:execute", "positions:read"])
+  apiKeyCreatedAt    DateTime? @map("api_key_created_at")
+  apiKeyLastUsedAt   DateTime? @map("api_key_last_used_at")
+  apiKeyLastUsedIp   String?   @map("api_key_last_used_ip")
+
+  // Metadata
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  server MtServer @relation(fields: [mtServerId], references: [id], onDelete: Cascade)
+
+  @@unique([mtServerId, managerLogin]) // Same login can't be added twice to same server
+  @@index([tenantId])
+  @@index([mtServerId, isActive])
+  @@map("mt_managers")
 }
 
 // ============================================
@@ -444,4 +525,285 @@ model TenantDomain {
 
   @@index([tenantId])
   @@map("tenant_domains")
+}
+
+// ============================================
+// Security - IP Blacklist (安全 - IP 黑名单)
+// ============================================
+model IpBlacklist {
+  id        String            @id @default(uuid())
+  ipAddress String            @map("ip_address")
+  tenantId  String?           @map("tenant_id") // null = global blacklist
+  reason    String? // Reason for blacklisting
+  source    IpBlacklistSource @default(MANUAL) // How it was added
+
+  // Auto-expiry support
+  expiresAt DateTime? @map("expires_at")
+
+  // Metadata
+  createdBy String?   @map("created_by") // Admin who added it
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Activity tracking
+  hitCount    Int       @default(0) @map("hit_count") // Times this IP was blocked
+  lastHitAt   DateTime? @map("last_hit_at")
+
+  @@unique([ipAddress, tenantId])
+  @@index([ipAddress])
+  @@index([tenantId])
+  @@index([expiresAt])
+  @@map("ip_blacklist")
+}
+
+enum IpBlacklistSource {
+  MANUAL // Added manually by admin
+  RATE_LIMIT // Auto-added due to rate limit violations
+  BRUTE_FORCE // Auto-added due to brute force attempts
+  SUSPICIOUS // Auto-added due to suspicious activity
+  EXTERNAL // Imported from external threat feed
+}
+
+// ============================================
+// Security - Audit Log (安全审计日志)
+// ============================================
+model AuditLog {
+  id        String         @id @default(uuid())
+  tenantId  String?        @map("tenant_id") // null = platform-level audit
+  userId    String?        @map("user_id") // Actor who performed the action
+  userEmail String?        @map("user_email") // Email for display purposes
+  userRole  String?        @map("user_role") // Role at time of action
+
+  // Action details
+  action      AuditAction @map("action") // Type of action performed
+  resource    String // Resource type (e.g., "user", "tenant", "config")
+  resourceId  String?     @map("resource_id") // ID of affected resource
+  description String? // Human-readable description
+
+  // Request context
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  requestId String?  @map("request_id") // For request tracing
+
+  // Change tracking
+  oldValue Json? @map("old_value") // Previous state (for updates)
+  newValue Json? @map("new_value") // New state (for creates/updates)
+
+  // Status and metadata
+  status   AuditStatus @default(SUCCESS)
+  errorMsg String?     @map("error_msg") // Error message if failed
+  metadata Json? // Additional context data
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([resource, resourceId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+enum AuditAction {
+  // Authentication
+  LOGIN
+  LOGOUT
+  LOGIN_FAILED
+  PASSWORD_CHANGE
+  PASSWORD_RESET
+  TOKEN_REFRESH
+
+  // User management
+  USER_CREATE
+  USER_UPDATE
+  USER_DELETE
+  USER_ACTIVATE
+  USER_DEACTIVATE
+
+  // Tenant management
+  TENANT_CREATE
+  TENANT_UPDATE
+  TENANT_DELETE
+  TENANT_SUSPEND
+  TENANT_ACTIVATE
+
+  // Configuration
+  CONFIG_UPDATE
+  SETTING_CHANGE
+
+  // Data operations
+  DATA_EXPORT
+  DATA_IMPORT
+  DATA_DELETE
+
+  // Security events
+  PERMISSION_CHANGE
+  ROLE_CHANGE
+  API_KEY_CREATE
+  API_KEY_REVOKE
+  IP_BLACKLIST_ADD
+  IP_BLACKLIST_REMOVE
+  ACCOUNT_LOCKOUT
+
+  // System events
+  SYSTEM_CONFIG_CHANGE
+  MAINTENANCE_MODE
+}
+
+enum AuditStatus {
+  SUCCESS
+  FAILURE
+  PARTIAL
+}
+
+// ============================================
+// Middleware Management (SaaS Level)
+// ============================================
+model Middleware {
+  id          String  @id @default(uuid())
+  name        String  // 中间件名称
+  description String? // 描述
+  url         String  // 中间件 URL (e.g., http://192.168.1.100:8083)
+
+  // Platform type (MT5 or MT4)
+  platformType PlatformType @default(MT5) @map("platform_type")
+
+  // Registration Secret (用于中间件启动时识别身份，唯一)
+  registrationSecret     String  @unique @map("registration_secret") // 注册密钥 (中间件启动参数)
+  registrationSecretHash String  @map("registration_secret_hash") // 注册密钥哈希
+
+  // API Key for service-to-service authentication (注册成功后生成)
+  apiKey     String? @unique @map("api_key") // API Key (用于服务间认证，注册后生成)
+  apiKeyHash String? @map("api_key_hash") // API Key 哈希 (用于验证)
+
+  // Assignment mode
+  assignmentMode MiddlewareAssignmentMode @default(SHARED) @map("assignment_mode")
+  maxTenants     Int                      @default(10) @map("max_tenants") // 最大租户数 (共享模式)
+
+  // Health status
+  status           MiddlewareStatus @default(UNKNOWN)
+  lastHeartbeat    DateTime?        @map("last_heartbeat")
+  serverIp         String?          @map("server_ip") // 中间件服务器IP
+  activeSessions   Int              @default(0) @map("active_sessions")
+  memoryUsage        Float?           @map("memory_usage") // 系统级内存使用量 (MB)
+  memoryTotal        Float?           @map("memory_total") // 系统级内存总容量 (MB)
+  memoryUsagePercent Float?           @map("memory_usage_percent") // 系统级内存使用率 (%)
+  processMemory      Float?           @map("process_memory") // 进程级内存使用量 (MB)
+  cpuUsage           Float?           @map("cpu_usage") // 系统级CPU使用率 (%)
+  processCpuUsage    Float?           @map("process_cpu_usage") // 进程级CPU使用率 (%)
+  diskUsage        Float?           @map("disk_usage") // 硬盘使用量 (GB)
+  diskUsagePercent Float?           @map("disk_usage_percent") // 硬盘使用率 (%)
+  diskTotal        Float?           @map("disk_total") // 硬盘总容量 (GB)
+  cacheStatus      Json?            @map("cache_status") // 缓存状态 { redisConnected, hitRate }
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  assignments MiddlewareAssignment[]
+  mtServers   MtServer[]
+  config      MiddlewareConfig?
+
+  @@map("middlewares")
+}
+
+enum MiddlewareAssignmentMode {
+  SHARED    // 多租户共享
+  DEDICATED // 单租户独占
+}
+
+enum MiddlewareStatus {
+  ONLINE
+  OFFLINE
+  DEGRADED
+  ERROR
+  UNKNOWN
+}
+
+// ============================================
+// Middleware Assignment (Middleware-Tenant Relationship)
+// ============================================
+model MiddlewareAssignment {
+  id           String   @id @default(uuid())
+  middlewareId String   @map("middleware_id")
+  tenantId     String   @map("tenant_id")
+  assignedAt   DateTime @default(now()) @map("assigned_at")
+  assignedBy   String   @map("assigned_by") // 分配人 (platform admin id)
+
+  // Relations
+  middleware Middleware @relation(fields: [middlewareId], references: [id], onDelete: Cascade)
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([middlewareId, tenantId])
+  @@index([middlewareId])
+  @@index([tenantId])
+  @@map("middleware_assignments")
+}
+
+// ============================================
+// Middleware Runtime Configuration
+// 中间件运行时配置 (速率限制、熔断器、重试等)
+// ============================================
+model MiddlewareConfig {
+  id           String @id @default(uuid())
+  middlewareId String @unique @map("middleware_id")
+
+  // Rate Limit Configuration (速率限制)
+  rateLimitEnabled          Boolean @default(true) @map("rate_limit_enabled")
+  rateLimitRequestsPerMin   Int     @default(60) @map("rate_limit_requests_per_min")
+  rateLimitBurstSize        Int     @default(100) @map("rate_limit_burst_size")
+
+  // Circuit Breaker Configuration (熔断器)
+  circuitBreakerEnabled          Boolean @default(true) @map("circuit_breaker_enabled")
+  circuitBreakerFailureThreshold Int     @default(5) @map("circuit_breaker_failure_threshold")
+  circuitBreakerOpenTimeoutSec   Int     @default(30) @map("circuit_breaker_open_timeout_sec")
+  circuitBreakerHalfOpenRequests Int     @default(3) @map("circuit_breaker_half_open_requests")
+
+  // Retry Configuration (重试)
+  retryEnabled     Boolean @default(true) @map("retry_enabled")
+  retryMaxRetries  Int     @default(3) @map("retry_max_retries")
+  retryBaseDelayMs Int     @default(1000) @map("retry_base_delay_ms")
+  retryMaxDelayMs  Int     @default(10000) @map("retry_max_delay_ms")
+
+  // Cache TTL Configuration (缓存TTL，单位秒)
+  cacheUserTtl    Int @default(300) @map("cache_user_ttl")       // 用户缓存 5分钟
+  cacheQuoteTtl   Int @default(1) @map("cache_quote_ttl")        // 行情缓存 1秒
+  cacheBalanceTtl Int @default(5) @map("cache_balance_ttl")      // 余额缓存 5秒
+  cacheSymbolTtl  Int @default(86400) @map("cache_symbol_ttl")   // 交易品种缓存 1天
+  cacheBarsTtl    Int @default(60) @map("cache_bars_ttl")        // K线缓存 1分钟
+
+  // WebSocket Configuration
+  wsHeartbeatIntervalSec Int @default(30) @map("ws_heartbeat_interval_sec")
+  wsPingTimeoutSec       Int @default(10) @map("ws_ping_timeout_sec")
+  wsMaxConnections       Int @default(10000) @map("ws_max_connections")
+
+  // CORS Configuration
+  corsEnabled        Boolean @default(true) @map("cors_enabled")
+  corsAllowedOrigins String  @default("*") @map("cors_allowed_origins") // 逗号分隔
+  corsAllowedMethods String  @default("GET,POST,PUT,DELETE,OPTIONS") @map("cors_allowed_methods")
+
+  // Security Configuration
+  securityMaxLoginAttempts   Int @default(5) @map("security_max_login_attempts")
+  securityLockoutDurationMin Int @default(30) @map("security_lockout_duration_min")
+  securitySessionTimeoutMin  Int @default(30) @map("security_session_timeout_min")
+
+  // Request Queue Configuration
+  requestQueueEnabled      Boolean @default(true) @map("request_queue_enabled")
+  requestQueueMaxSize      Int     @default(1000) @map("request_queue_max_size")
+  requestQueueTimeoutMs    Int     @default(30000) @map("request_queue_timeout_ms")
+  requestQueueWorkerCount  Int     @default(4) @map("request_queue_worker_count")
+
+  // Batch Concurrency
+  batchConcurrencyLimit Int @default(10) @map("batch_concurrency_limit")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  middleware Middleware @relation(fields: [middlewareId], references: [id], onDelete: Cascade)
+
+  @@map("middleware_configs")
 }

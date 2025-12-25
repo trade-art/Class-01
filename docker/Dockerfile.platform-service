@@ -1,0 +1,102 @@
+# =============================================================================
+# MT5 Platform - Platform Service Dockerfile
+# Multi-stage build for optimized production image
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Stage 1: Dependencies - Install all dependencies
+# -----------------------------------------------------------------------------
+FROM node:20-alpine3.18 AS deps
+
+# Install build dependencies for native modules and OpenSSL
+RUN apk add --no-cache libc6-compat python3 make g++ openssl
+
+WORKDIR /app
+
+# Copy package files for dependency installation
+COPY package.json package-lock.json ./
+COPY apps/platform-service/package.json ./apps/platform-service/
+COPY packages/shared/package.json ./packages/shared/
+
+# Install all dependencies (including devDependencies for build)
+RUN npm ci --legacy-peer-deps
+
+# -----------------------------------------------------------------------------
+# Stage 2: Builder - Build the application
+# -----------------------------------------------------------------------------
+FROM node:20-alpine3.18 AS builder
+
+# Install OpenSSL for Prisma generate
+RUN apk add --no-cache openssl
+
+WORKDIR /app
+
+# Copy node_modules from deps stage (npm workspaces installs all deps in root node_modules)
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy source code
+COPY package.json package-lock.json ./
+COPY apps/platform-service ./apps/platform-service
+COPY packages/shared ./packages/shared
+
+# Generate Prisma client
+RUN cd apps/platform-service && npx prisma generate
+
+# Build the application
+RUN npm run build -w @mt5-platform/platform-service
+
+# Prune dev dependencies
+RUN npm prune --production --legacy-peer-deps
+
+# -----------------------------------------------------------------------------
+# Stage 3: Runner - Production image
+# -----------------------------------------------------------------------------
+FROM node:20-alpine3.18 AS runner
+
+# Add labels for image metadata
+LABEL org.opencontainers.image.title="MT5 Platform Service"
+LABEL org.opencontainers.image.description="MT5 Platform Service for Multi-tenant Management"
+LABEL org.opencontainers.image.vendor="MT5 Platform Team"
+
+# Install runtime dependencies including OpenSSL for Prisma
+RUN apk add --no-cache \
+    dumb-init \
+    curl \
+    openssl \
+    && rm -rf /var/cache/apk/*
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 nestjs
+
+WORKDIR /app
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=3001
+
+# Copy production dependencies (includes Prisma client in node_modules/.prisma)
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+
+# Copy built application
+COPY --from=builder --chown=nestjs:nodejs /app/apps/platform-service/dist ./apps/platform-service/dist
+COPY --from=builder --chown=nestjs:nodejs /app/apps/platform-service/package.json ./apps/platform-service/
+
+# Copy Prisma schema for migrations
+COPY --from=builder --chown=nestjs:nodejs /app/apps/platform-service/prisma ./apps/platform-service/prisma
+
+# Switch to non-root user
+USER nestjs
+
+# Expose the application port
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:3001/health || exit 1
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the application
+CMD ["node", "apps/platform-service/dist/src/main.js"]

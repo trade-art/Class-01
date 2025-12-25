@@ -1,0 +1,16 @@
+{
+  "id": "snapshot_1764946481050_qj2jcz6jr",
+  "approvalId": "approval_1764946463452_wcta657hx",
+  "approvalTitle": "Security Hardening Requirements",
+  "version": 2,
+  "timestamp": "2025-12-05T14:54:41.050Z",
+  "trigger": "approved",
+  "status": "pending",
+  "content": "# Requirements Document: Security Hardening\r\n\r\n## Introduction\r\n\r\n本功能实现SaaS平台的安全加固措施，包括HTTPS配置、API限流、敏感数据加密、安全审计和漏洞扫描。目标是达到生产环境的安全标准，保护租户数据安全。\r\n\r\n### 背景\r\n\r\n当前状态：\r\n- 基础JWT认证已实现\r\n- 密码使用bcrypt加密\r\n- MT服务器凭证使用AES加密\r\n- 缺少HTTPS、限流、审计等生产级安全措施\r\n\r\n目标状态：\r\n- 全链路HTTPS\r\n- API限流保护\r\n- 完善的审计日志\r\n- 定期安全扫描\r\n\r\n## Requirements\r\n\r\n### Requirement 1: HTTPS和传输安全\r\n\r\n**User Story:** 作为安全工程师，我想要确保所有通信加密传输，以防止数据泄露。\r\n\r\n#### Acceptance Criteria\r\n\r\n1. WHEN 访问平台 THEN 系统 SHALL 强制使用HTTPS（HTTP重定向到HTTPS）\r\n2. WHEN TLS握手 THEN 系统 SHALL 使用TLS 1.2+和强加密套件\r\n3. WHEN 设置Cookie THEN 系统 SHALL 添加Secure、HttpOnly、SameSite属性\r\n4. IF 证书即将过期（30天内） THEN 系统 SHALL 发送告警通知\r\n5. WHEN 内部服务通信 THEN 系统 SHALL 使用mTLS或服务网格加密\r\n\r\n### Requirement 2: API限流和防护\r\n\r\n**User Story:** 作为安全工程师，我想要防止API滥用和DDoS攻击，以保证服务可用性。\r\n\r\n#### Acceptance Criteria\r\n\r\n1. WHEN API请求超过限制（100次/分钟/IP） THEN 系统 SHALL 返回429状态码\r\n2. WHEN 登录失败超过5次 THEN 系统 SHALL 暂时锁定账户（15分钟）\r\n3. WHEN 检测到异常请求模式 THEN 系统 SHALL 触发告警并可选阻断\r\n4. IF 请求来自黑名单IP THEN 系统 SHALL 直接拒绝请求\r\n5. WHEN 限流触发 THEN 响应 SHALL 包含Retry-After头\r\n\r\n### Requirement 3: 敏感数据保护\r\n\r\n**User Story:** 作为数据安全官，我想要确保敏感数据安全存储和传输，以符合合规要求。\r\n\r\n#### Acceptance Criteria\r\n\r\n1. WHEN 存储密码 THEN 系统 SHALL 使用bcrypt（cost factor >= 10）\r\n2. WHEN 存储API密钥和凭证 THEN 系统 SHALL 使用AES-256-GCM加密\r\n3. WHEN 日志输出 THEN 系统 SHALL 自动脱敏敏感字段（密码、令牌、卡号等）\r\n4. IF 数据导出 THEN 系统 SHALL 记录导出日志并可选加密\r\n5. WHEN 数据删除 THEN 系统 SHALL 支持安全删除（覆写）\r\n\r\n### Requirement 4: 安全审计日志\r\n\r\n**User Story:** 作为合规官，我想要完整的安全审计日志，以便追踪安全事件和满足合规要求。\r\n\r\n#### Acceptance Criteria\r\n\r\n1. WHEN 用户登录/登出 THEN 系统 SHALL 记录时间、IP、设备信息\r\n2. WHEN 敏感操作执行 THEN 系统 SHALL 记录操作者、操作类型、操作对象\r\n3. WHEN 权限变更 THEN 系统 SHALL 记录变更前后的权限信息\r\n4. IF 检测到可疑活动 THEN 系统 SHALL 标记并发送告警\r\n5. WHEN 审计日志查询 THEN 系统 SHALL 支持时间范围、用户、操作类型过滤\r\n\r\n### Requirement 5: 安全扫描和漏洞管理\r\n\r\n**User Story:** 作为安全工程师，我想要定期扫描安全漏洞，以及时发现和修复问题。\r\n\r\n#### Acceptance Criteria\r\n\r\n1. WHEN CI/CD构建 THEN 系统 SHALL 自动扫描依赖漏洞（npm audit）\r\n2. WHEN 发现高危漏洞 THEN 系统 SHALL 阻断部署并发送告警\r\n3. WHEN 定期扫描（每周） THEN 系统 SHALL 生成安全报告\r\n4. IF 发现新漏洞 THEN 系统 SHALL 评估影响范围并制定修复计划\r\n5. WHEN 漏洞修复 THEN 系统 SHALL 更新漏洞状态并记录修复过程\r\n\r\n### Requirement 6: 输入验证和防注入\r\n\r\n**User Story:** 作为开发者，我想要防止注入攻击，以保护应用和数据安全。\r\n\r\n#### Acceptance Criteria\r\n\r\n1. WHEN 接收用户输入 THEN 系统 SHALL 验证和清理所有输入\r\n2. WHEN SQL查询 THEN 系统 SHALL 使用参数化查询（Prisma ORM）\r\n3. WHEN 渲染用户内容 THEN 前端 SHALL 进行XSS转义\r\n4. IF 检测到注入尝试 THEN 系统 SHALL 记录并阻断请求\r\n5. WHEN API响应 THEN 系统 SHALL 设置适当的安全头（CSP、X-Frame-Options等）\r\n\r\n## Non-Functional Requirements\r\n\r\n### Security Standards\r\n- OWASP Top 10 防护\r\n- 符合GDPR数据保护要求\r\n- 支持SOC 2审计\r\n\r\n### Performance\r\n- 安全检查对响应时间影响 < 10ms\r\n- 限流检查使用Redis，延迟 < 1ms\r\n- 审计日志异步写入\r\n\r\n### Reliability\r\n- 安全组件高可用\r\n- 限流状态分布式同步\r\n- 审计日志不丢失\r\n\r\n### Maintainability\r\n- 安全配置集中管理\r\n- 规则可动态更新\r\n- 安全事件可追溯\r\n",
+  "fileStats": {
+    "size": 4504,
+    "lines": 116,
+    "lastModified": "2025-12-05T14:53:19.703Z"
+  },
+  "comments": []
+}

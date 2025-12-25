@@ -252,4 +252,78 @@ export class MiddlewareClientService {
       };
     }
   }
+
+  /**
+   * 测试真实的 MT5 API 认证
+   * 通过调用中间件的登录端点来验证经理账号凭证
+   *
+   * @param middlewareUrl 中间件 URL
+   * @param managerLogin 经理账号登录名
+   * @param managerPassword 经理账号密码
+   * @param serverAddress MT 服务器地址
+   * @param serverId MT 服务器 ID
+   * @param tenantId 租户 ID
+   * @returns 是否认证成功
+   */
+  async testAuthentication(
+    middlewareUrl: string,
+    managerLogin: number,
+    managerPassword: string,
+    serverAddress: string,
+    serverId: string,
+    tenantId: string,
+  ): Promise<boolean> {
+    const url = `${middlewareUrl}/api/v1/auth/admin/login`;
+
+    this.logger.debug(
+      `测试 MT5 API 认证: 中间件=${middlewareUrl}, 租户=${tenantId}, 服务器=${serverId}`,
+    );
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          url,
+          {
+            login: managerLogin,
+            password: managerPassword,
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Server-Address': serverAddress,
+              'X-Server-Id': serverId,
+              'X-Tenant-Id': tenantId,
+            },
+            timeout: 10000, // 认证超时 10 秒
+          },
+        ).pipe(
+          timeout(10000),
+          catchError((error: AxiosError) => {
+            throw error;
+          }),
+        ),
+      );
+
+      // 检查响应状态
+      const data = response.data as { success?: boolean; code?: number };
+      if (data.success === true || data.code === 0) {
+        this.logger.debug(`MT5 API 认证成功: 租户=${tenantId}`);
+        return true;
+      }
+
+      this.logger.debug(`MT5 API 认证失败: 租户=${tenantId}, 响应=${JSON.stringify(data)}`);
+      return false;
+    } catch (error: any) {
+      // 401 表示凭证错误，但中间件是可达的
+      // 其他错误表示中间件不可达或服务异常
+      if (error.response?.status === 401) {
+        this.logger.debug(`MT5 API 认证失败 (401): 租户=${tenantId}, 凭证无效`);
+      } else {
+        this.logger.warn(
+          `MT5 API 认证请求失败: 租户=${tenantId}, 错误=${error.message}`,
+        );
+      }
+      return false;
+    }
+  }
 }

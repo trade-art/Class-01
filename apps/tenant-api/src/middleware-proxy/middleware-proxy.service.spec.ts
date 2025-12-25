@@ -13,6 +13,7 @@ describe('MiddlewareProxyService', () => {
 
   const mockHttpService = {
     request: jest.fn(),
+    get: jest.fn(),
   };
 
   const mockConfigService = {
@@ -130,23 +131,41 @@ describe('MiddlewareProxyService', () => {
 
   describe('getServerStatus', () => {
     it('应该返回服务器状态', async () => {
-      const mockStatus = {
-        connected: true,
-        serverTime: '2024-01-15T10:00:00Z',
-        ping: 50,
-      };
-      const mockResponse: AxiosResponse = {
-        data: { success: true, data: mockStatus },
+      // 当前实现使用 httpService.get 直接请求 /health 端点
+      const mockTimestamp = Date.now();
+      const mockHealthResponse: AxiosResponse = {
+        data: {
+          service: 'mt5-middleware',
+          status: 'healthy',
+          timestamp: mockTimestamp,
+          version: '1.0.0',
+        },
         status: 200,
         statusText: 'OK',
         headers: {},
         config: {} as InternalAxiosRequestConfig,
       };
-      mockHttpService.request.mockReturnValue(of(mockResponse));
+      mockHttpService.get.mockReturnValue(of(mockHealthResponse));
 
       const result = await service.getServerStatus(mockInstanceId);
 
-      expect(result).toEqual(mockStatus);
+      expect(result.serverName).toBe('mt5-middleware');
+      expect(result.connected).toBe(true);
+      expect(result.tradeSession).toBe('open');
+    });
+
+    it('请求失败时应返回默认离线状态', async () => {
+      // 模拟网络错误 - 使用 pipe 友好的方式
+      const error$ = new (require('rxjs').Observable)((subscriber: any) => {
+        subscriber.error(new Error('Connection refused'));
+      });
+      mockHttpService.get.mockReturnValue(error$);
+
+      const result = await service.getServerStatus(mockInstanceId);
+
+      expect(result.connected).toBe(false);
+      expect(result.serverName).toBe('mt5-middleware');
+      expect(result.tradeSession).toBe('closed');
     });
   });
 
@@ -248,14 +267,14 @@ describe('MiddlewareProxyService', () => {
 
   describe('testConnection', () => {
     it('连接成功应返回 true', async () => {
-      const mockResponse: AxiosResponse = {
-        data: { success: true, data: { connected: true } },
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config: {} as InternalAxiosRequestConfig,
-      };
-      mockHttpService.request.mockReturnValue(of(mockResponse));
+      // 直接 spy getServerStatus 方法
+      jest.spyOn(service, 'getServerStatus').mockResolvedValue({
+        serverName: 'mt5-middleware',
+        connected: true,
+        ping: 50,
+        serverTime: new Date().toISOString(),
+        tradeSession: 'open',
+      });
 
       const result = await service.testConnection(mockInstanceId);
 
@@ -263,9 +282,14 @@ describe('MiddlewareProxyService', () => {
     });
 
     it('连接失败应返回 false', async () => {
-      mockHttpService.request.mockReturnValue(
-        throwError(() => new Error('Connection refused')),
-      );
+      // 当连接失败时，getServerStatus 返回 connected: false
+      jest.spyOn(service, 'getServerStatus').mockResolvedValue({
+        serverName: 'mt5-middleware',
+        connected: false,
+        ping: -1,
+        serverTime: new Date().toISOString(),
+        tradeSession: 'closed',
+      });
 
       const result = await service.testConnection(mockInstanceId);
 

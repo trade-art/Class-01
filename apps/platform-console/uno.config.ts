@@ -51,15 +51,24 @@ export default defineConfig({
     transformerVariantGroup(),
   ],
   safelist: [
+    // Menu icons
     'i-carbon-dashboard',
     'i-carbon-enterprise',
-    'i-carbon-server',
+    'i-carbon-bare-metal-server',
+    'i-carbon-user-admin',
+    'i-carbon-catalog',
     'i-carbon-document',
-    'i-carbon-settings',
-    'i-carbon-user',
-    'i-carbon-logout',
+    'i-carbon-chart-line',
+    'i-carbon-cloud-services',
+    // Header icons
+    'i-carbon-home',
+    'i-carbon-language',
     'i-carbon-sun',
     'i-carbon-moon',
+    // User dropdown icons
+    'i-carbon-user',
+    'i-carbon-logout',
+    'i-carbon-settings',
     'i-carbon-translate',
   ],
 })

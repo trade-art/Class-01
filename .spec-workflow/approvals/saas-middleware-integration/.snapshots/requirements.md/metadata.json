@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/saas-middleware-integration/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-05T14:42:40.441Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764945760427_754wjvtil",
+      "approvalTitle": "SaaS中间件集成 - 需求文档"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-05T14:44:10.475Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764945760427_754wjvtil",
+      "approvalTitle": "SaaS中间件集成 - 需求文档"
+    }
+  ]
+}

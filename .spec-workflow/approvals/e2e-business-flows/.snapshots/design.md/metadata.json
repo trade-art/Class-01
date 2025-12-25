@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/e2e-business-flows/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-05T14:59:48.322Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764946788313_gce3f74bc",
+      "approvalTitle": "E2E Business Flows Design"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-05T15:00:05.133Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764946788313_gce3f74bc",
+      "approvalTitle": "E2E Business Flows Design"
+    }
+  ]
+}

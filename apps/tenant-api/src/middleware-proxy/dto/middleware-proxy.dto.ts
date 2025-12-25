@@ -179,6 +179,9 @@ export class DealDto {
   @ApiProperty({ description: '订单号' })
   ticket: number;
 
+  @ApiPropertyOptional({ description: '账号' })
+  login?: number;
+
   @ApiProperty({ description: '交易品种' })
   symbol: string;
 

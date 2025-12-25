@@ -317,6 +317,9 @@ function getActionOptions(row: Tenant) {
   if (row.status === 'ACTIVE') {
     options.push({ label: '暂停', key: 'suspend' })
   }
+  if (row.status === 'SUSPENDED') {
+    options.push({ label: '启用', key: 'reactivate' })
+  }
   options.push({ label: '编辑', key: 'edit' })
   options.push({ label: '删除', key: 'delete', props: { style: { color: 'var(--error-color)' } } })
   return options
@@ -329,6 +332,9 @@ function handleAction(key: string, row: Tenant) {
       break
     case 'suspend':
       suspendTenant(row)
+      break
+    case 'reactivate':
+      reactivateTenant(row)
       break
     case 'edit':
       editTenant(row)
@@ -458,10 +464,54 @@ function suspendTenant(tenant: Tenant) {
   })
 }
 
-function deleteTenant(tenant: Tenant) {
+function reactivateTenant(tenant: Tenant) {
+  dialog.info({
+    title: '确认启用',
+    content: `确定要启用租户 "${tenant.name}" 吗？`,
+    positiveText: '确认',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await api.tenants.activate(tenant.id)
+        message.success('已启用')
+        loadTenants()
+      } catch {
+        message.error('操作失败')
+      }
+    },
+  })
+}
+
+async function deleteTenant(tenant: Tenant) {
+  // 先获取关联数据统计
+  const loadingMsg = message.loading('正在获取关联数据...', { duration: 0 })
+  let relatedCount = { instances: 0, admins: 0, mtServers: 0 }
+  try {
+    relatedCount = await api.tenants.getRelatedCount(tenant.id) as any
+  } catch {
+    // 获取失败时使用默认值
+  }
+  loadingMsg.destroy()
+
+  // 构建删除确认信息
+  const relatedInfo: string[] = []
+  if (relatedCount.instances > 0) {
+    relatedInfo.push(`${relatedCount.instances} 个实例`)
+  }
+  if (relatedCount.admins > 0) {
+    relatedInfo.push(`${relatedCount.admins} 个管理员`)
+  }
+  if (relatedCount.mtServers > 0) {
+    relatedInfo.push(`${relatedCount.mtServers} 个MT服务器`)
+  }
+
+  const contentText = relatedInfo.length > 0
+    ? `确定要删除租户 "${tenant.name}" 吗？\n\n将同时删除以下关联数据：${relatedInfo.join('、')}\n\n此操作不可恢复！`
+    : `确定要删除租户 "${tenant.name}" 吗？此操作不可恢复！`
+
   dialog.error({
     title: '确认删除',
-    content: `确定要删除租户 "${tenant.name}" 吗？此操作不可恢复！`,
+    content: contentText,
     positiveText: '删除',
     negativeText: '取消',
     onPositiveClick: async () => {

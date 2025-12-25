@@ -74,6 +74,7 @@ describe('SettingsService', () => {
     id: 'key-1',
     name: 'Test API Key',
     key: 'mt5_abc1234567890',
+    keyPrefix: 'mt5_abc1',
     hashedKey: 'hashedkey',
     permissions: ['read', 'write'],
     isActive: true,

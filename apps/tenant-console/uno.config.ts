@@ -7,6 +7,7 @@ import {
   transformerDirectives,
   transformerVariantGroup,
 } from 'unocss'
+import { icons as carbonIcons } from '@iconify-json/carbon'
 
 export default defineConfig({
   shortcuts: {
@@ -43,6 +44,9 @@ export default defineConfig({
     presetIcons({
       scale: 1.2,
       warn: true,
+      collections: {
+        carbon: () => carbonIcons,
+      },
       extraProperties: {
         'display': 'inline-block',
         'vertical-align': 'middle',
@@ -73,8 +77,8 @@ export default defineConfig({
     'i-carbon-translate',
     // Trading icons
     'i-carbon-currency-dollar',
-    'i-carbon-trending-up',
-    'i-carbon-trending-down',
+    'i-carbon-growth',
+    'i-carbon-arrow-down',
     'i-carbon-activity',
     'i-carbon-analytics',
     'i-carbon-warning',
@@ -84,7 +88,7 @@ export default defineConfig({
     'i-carbon-add',
     'i-carbon-edit',
     'i-carbon-trash-can',
-    'i-carbon-refresh',
+    'i-carbon-renew',
     'i-carbon-download',
     'i-carbon-upload',
     'i-carbon-search',
@@ -102,5 +106,12 @@ export default defineConfig({
     'i-carbon-password',
     'i-carbon-enterprise',
     'i-carbon-badge',
+    // Report icons
+    'i-carbon-user-activity',
+    'i-carbon-user-follow',
+    'i-carbon-percentage',
+    'i-carbon-trophy',
+    'i-carbon-purchase',
+    'i-carbon-time',
   ],
 })

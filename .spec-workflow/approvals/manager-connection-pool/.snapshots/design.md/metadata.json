@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/manager-connection-pool/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-18T06:16:55.532Z",
+      "trigger": "initial",
+      "approvalId": "approval_1766038615516_0r85mf1cb",
+      "approvalTitle": "Design: Manager Connection Pool 技术设计"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-18T06:17:06.607Z",
+      "trigger": "approved",
+      "approvalId": "approval_1766038615516_0r85mf1cb",
+      "approvalTitle": "Design: Manager Connection Pool 技术设计"
+    }
+  ]
+}

@@ -8,6 +8,7 @@ export interface UserListParams extends PaginationParams {
   status?: string
   sortBy?: string
   sortOrder?: 'asc' | 'desc'
+  managerId?: string
 }
 
 // 转换前端分页参数为后端格式 (pageSize -> limit)
@@ -41,8 +42,8 @@ export const usersApi = {
     return put(`/tenant/users/${login}/status`, { status })
   },
 
-  getGroups(): Promise<string[]> {
-    return get<string[]>('/tenant/users/groups')
+  getGroups(managerId?: string): Promise<string[]> {
+    return get<string[]>('/tenant/users/groups', managerId ? { managerId } : undefined)
   },
 
   getTransactions(login: number | string, params?: Partial<PaginationParams>): Promise<PaginatedResponse<any>> {
@@ -67,8 +68,8 @@ export const usersApi = {
     return post(`/tenant/users/${login}/reset-password`)
   },
 
-  suspendUser(login: number | string): Promise<void> {
-    return put(`/tenant/users/${login}/suspend`)
+  deactivateUser(login: number | string): Promise<void> {
+    return put(`/tenant/users/${login}/deactivate`)
   },
 
   activateUser(login: number | string): Promise<void> {

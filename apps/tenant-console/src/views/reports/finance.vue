@@ -7,7 +7,7 @@
           v-model:value="dateRange"
           type="daterange"
           :placeholder="[t('reports.startDate'), t('reports.endDate')] as any"
-          @update:value="loadReport"
+          @update:value="() => loadReport(true)"
         />
         <n-button @click="handleExport">
           <template #icon>
@@ -132,6 +132,7 @@ import {
   type DataTableColumns,
 } from 'naive-ui'
 import { reportsApi } from '@/api/reports'
+import { useReportsStore } from '@/stores/reports'
 import LineChart from '@/components/charts/LineChart.vue'
 import BarChart from '@/components/charts/BarChart.vue'
 
@@ -146,8 +147,10 @@ interface Transaction {
 
 const { t } = useI18n()
 const message = useMessage()
+const reportsStore = useReportsStore()
 
-const loading = ref(false)
+// 使用 Store 的 loading 状态
+const loading = computed(() => reportsStore.financeLoading)
 const transactionsLoading = ref(false)
 const dateRange = ref<[number, number] | null>(null)
 
@@ -231,23 +234,22 @@ const formatCurrency = (value: number, showSign = false) => {
   return value >= 0 ? formatted : '-' + formatted
 }
 
-const loadReport = async () => {
-  loading.value = true
+const loadReport = async (forceRefresh = false) => {
   try {
     const params: any = {}
     if (dateRange.value) {
-      params.startDate = new Date(dateRange.value[0]).toISOString()
-      params.endDate = new Date(dateRange.value[1]).toISOString()
+      // 截断到秒级，避免毫秒差异导致缓存失效
+      params.startDate = new Date(dateRange.value[0]).toISOString().split('.')[0] + 'Z'
+      params.endDate = new Date(dateRange.value[1]).toISOString().split('.')[0] + 'Z'
     }
 
-    const data = await reportsApi.getFinanceReport(params)
+    // 使用带缓存的 Store 方法
+    const data = await reportsStore.getFinanceReport(params, forceRefresh)
     Object.assign(report, data.summary)
     trendData.value = data.trend || []
     commissionData.value = data.commissionTrend || []
   } catch (error) {
     console.error('Failed to load report:', error)
-  } finally {
-    loading.value = false
   }
 }
 
@@ -259,8 +261,9 @@ const loadTransactions = async () => {
       pageSize: pagination.pageSize,
     }
     if (dateRange.value) {
-      params.startDate = new Date(dateRange.value[0]).toISOString()
-      params.endDate = new Date(dateRange.value[1]).toISOString()
+      // 截断到秒级，避免毫秒差异导致缓存失效
+      params.startDate = new Date(dateRange.value[0]).toISOString().split('.')[0] + 'Z'
+      params.endDate = new Date(dateRange.value[1]).toISOString().split('.')[0] + 'Z'
     }
 
     const data = await reportsApi.getTransactions(params)
@@ -283,8 +286,9 @@ const handleExport = async () => {
     message.info(t('reports.exporting'))
     const params: any = {}
     if (dateRange.value) {
-      params.startDate = new Date(dateRange.value[0]).toISOString()
-      params.endDate = new Date(dateRange.value[1]).toISOString()
+      // 截断到秒级，保持一致性
+      params.startDate = new Date(dateRange.value[0]).toISOString().split('.')[0] + 'Z'
+      params.endDate = new Date(dateRange.value[1]).toISOString().split('.')[0] + 'Z'
     }
     await reportsApi.exportFinanceReport(params)
     message.success(t('reports.exportSuccess'))
@@ -293,12 +297,36 @@ const handleExport = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   // Default to last 30 days
   const now = Date.now()
   dateRange.value = [now - 30 * 24 * 60 * 60 * 1000, now]
-  loadReport()
-  loadTransactions()
+
+  // 构建参数
+  const params: any = {
+    startDate: new Date(dateRange.value[0]).toISOString().split('.')[0] + 'Z',
+    endDate: new Date(dateRange.value[1]).toISOString().split('.')[0] + 'Z',
+  }
+
+  // 1. 先尝试显示缓存数据（立即响应，无 loading）
+  const cachedData = reportsStore.getCachedData('finance', params)
+  if (cachedData) {
+    Object.assign(report, cachedData.summary)
+    trendData.value = cachedData.trend || []
+    commissionData.value = cachedData.commissionTrend || []
+
+    // 并行：后台刷新报表 + 加载交易记录
+    Promise.all([
+      loadReport(true),
+      loadTransactions(),
+    ])
+  } else {
+    // 无缓存，并行加载报表和交易记录
+    await Promise.all([
+      loadReport(),
+      loadTransactions(),
+    ])
+  }
 })
 </script>
 

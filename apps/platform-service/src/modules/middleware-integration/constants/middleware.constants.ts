@@ -6,7 +6,7 @@
 // 健康检查配置
 export const HEALTH_CHECK_CONFIG = {
   /** 健康检查间隔 (毫秒) */
-  INTERVAL_MS: 60000, // 1 分钟
+  INTERVAL_MS: 15000, // 15 秒
   /** 健康检查超时 (毫秒) */
   TIMEOUT_MS: 5000,
   /** 触发告警的连续失败次数 */

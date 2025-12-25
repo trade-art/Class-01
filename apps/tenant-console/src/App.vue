@@ -34,6 +34,7 @@ import {
 } from 'naive-ui'
 import { useSettingsStore } from '@/stores/settings'
 import { useTenantStore } from '@/stores/tenant'
+import i18n from '@/locales'
 
 const settingsStore = useSettingsStore()
 const tenantStore = useTenantStore()
@@ -56,6 +57,14 @@ watchEffect(() => {
     document.documentElement.classList.add('dark')
   } else {
     document.documentElement.classList.remove('dark')
+  }
+})
+
+// Sync i18n locale with settings store (fixes language switch persistence)
+watchEffect(() => {
+  const lang = settingsStore.language
+  if (i18n.global.locale.value !== lang) {
+    i18n.global.locale.value = lang
   }
 })
 

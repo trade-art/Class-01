@@ -18,6 +18,29 @@ import {
   GetSymbolsParams,
   ServerStatus,
   AdapterConfig,
+  // 交易操作类型
+  OpenOrderParams,
+  ClosePositionParams,
+  ModifyPositionParams,
+  PendingOrderParams,
+  ModifyOrderParams,
+  CancelOrderParams,
+  BalanceOperationParams,
+  TradeResult,
+  // 用户管理类型
+  CreateUserParams,
+  UpdateUserParams,
+  ChangePasswordParams,
+  CreateUserResult,
+  // 市场数据类型
+  CandleData,
+  TickData,
+  GetCandlesParams,
+  GetTicksParams,
+  // 批量操作类型
+  BatchOpenOrderParams,
+  BatchClosePositionParams,
+  BatchOperationResult,
 } from './types';
 
 /**
@@ -43,6 +66,15 @@ export abstract class TradingPlatformAdapter {
       ...config,
     };
     this.logger = new Logger(this.constructor.name);
+
+    // 如果提供了 ServiceToken 配置，自动初始化认证状态
+    if (config.serviceToken) {
+      this.accessToken = config.serviceToken.token;
+      this.tokenExpiry = new Date(config.serviceToken.expiresAt * 1000);
+      this.logger.log(
+        `使用 ServiceToken 初始化认证，有效期至 ${this.tokenExpiry.toISOString()}`,
+      );
+    }
   }
 
   // ============================================================
@@ -80,6 +112,19 @@ export abstract class TradingPlatformAdapter {
    */
   isAuthenticated(): boolean {
     return this.isTokenValid();
+  }
+
+  /**
+   * 检查令牌是否即将过期
+   * @param thresholdMinutes 过期阈值（分钟），默认为 5 分钟
+   * @returns 如果令牌将在指定时间内过期返回 true
+   */
+  isTokenExpiring(thresholdMinutes: number = 5): boolean {
+    if (!this.accessToken || !this.tokenExpiry) {
+      return true; // 没有令牌视为已过期
+    }
+    const thresholdMs = thresholdMinutes * 60 * 1000;
+    return this.tokenExpiry.getTime() < Date.now() + thresholdMs;
   }
 
   // ============================================================
@@ -192,6 +237,92 @@ export abstract class TradingPlatformAdapter {
   abstract testConnection(): Promise<boolean>;
 
   // ============================================================
+  // 交易操作方法 (子类实现)
+  // ============================================================
+
+  /**
+   * 开仓 (市价单)
+   */
+  abstract openOrder(params: OpenOrderParams): Promise<TradeResult>;
+
+  /**
+   * 平仓
+   */
+  abstract closePosition(params: ClosePositionParams): Promise<TradeResult>;
+
+  /**
+   * 修改持仓 (止损/止盈)
+   */
+  abstract modifyPosition(params: ModifyPositionParams): Promise<TradeResult>;
+
+  /**
+   * 挂单
+   */
+  abstract placePendingOrder(params: PendingOrderParams): Promise<TradeResult>;
+
+  /**
+   * 修改挂单
+   */
+  abstract modifyOrder(params: ModifyOrderParams): Promise<TradeResult>;
+
+  /**
+   * 取消挂单
+   */
+  abstract cancelOrder(params: CancelOrderParams): Promise<TradeResult>;
+
+  /**
+   * 余额操作 (入金/出金/信用/调整)
+   */
+  abstract balanceOperation(params: BalanceOperationParams): Promise<TradeResult>;
+
+  // ============================================================
+  // 用户管理方法 (子类实现)
+  // ============================================================
+
+  /**
+   * 创建用户
+   */
+  abstract createUser(params: CreateUserParams): Promise<CreateUserResult>;
+
+  /**
+   * 更新用户信息
+   */
+  abstract updateUser(params: UpdateUserParams): Promise<boolean>;
+
+  /**
+   * 修改用户密码
+   */
+  abstract changePassword(params: ChangePasswordParams): Promise<boolean>;
+
+  // ============================================================
+  // 市场数据方法 (子类实现)
+  // ============================================================
+
+  /**
+   * 获取 K 线数据
+   */
+  abstract getCandles(params: GetCandlesParams): Promise<CandleData[]>;
+
+  /**
+   * 获取 Tick 数据
+   */
+  abstract getTicks(params: GetTicksParams): Promise<TickData[]>;
+
+  // ============================================================
+  // 批量操作方法 (子类实现)
+  // ============================================================
+
+  /**
+   * 批量开仓
+   */
+  abstract batchOpenOrders(params: BatchOpenOrderParams): Promise<BatchOperationResult>;
+
+  /**
+   * 批量平仓
+   */
+  abstract batchClosePositions(params: BatchClosePositionParams): Promise<BatchOperationResult>;
+
+  // ============================================================
   // HTTP 请求工具方法 (基类实现)
   // ============================================================
 
@@ -215,9 +346,15 @@ export abstract class TradingPlatformAdapter {
       ...options?.headers,
     };
 
-    // 添加认证令牌
-    if (!options?.skipAuth && this.accessToken) {
-      headers['Authorization'] = `Bearer ${this.accessToken}`;
+    // 添加认证头信息
+    if (!options?.skipAuth) {
+      // 优先使用配置中的 authHeaders (ServiceToken 模式)
+      if (this.config.authHeaders) {
+        Object.assign(headers, this.config.authHeaders);
+      } else if (this.accessToken) {
+        // 兼容旧的 Bearer Token 模式
+        headers['Authorization'] = `Bearer ${this.accessToken}`;
+      }
     }
 
     const config: AxiosRequestConfig = {
@@ -264,9 +401,13 @@ export abstract class TradingPlatformAdapter {
 
     if (error.response) {
       const status = error.response.status;
+      const responseData = error.response.data as Record<string, unknown>;
       const message =
-        (error.response.data as { message?: string })?.message ||
+        (responseData as { message?: string })?.message ||
         error.message;
+
+      // 记录完整的中间件响应以便调试
+      this.logger.error(`中间件返回错误: status=${status}, response=${JSON.stringify(responseData)}`);
 
       throw new Error(`HTTP ${status}: ${message}`);
     }

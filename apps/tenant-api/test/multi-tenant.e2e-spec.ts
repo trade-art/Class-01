@@ -138,7 +138,13 @@ class MockPrismaServiceMultiTenant {
 
   tenantAdmin = {
     findUnique: jest.fn().mockImplementation(({ where, include }) => {
-      const admin = this.admins.find((a) => a.id === where.id) || null;
+      // 支持通过 id 或 email 查找
+      let admin = null;
+      if (where.id) {
+        admin = this.admins.find((a) => a.id === where.id) || null;
+      } else if (where.email) {
+        admin = this.admins.find((a) => a.email === where.email) || null;
+      }
       if (admin && include?.tenant) {
         return Promise.resolve({
           ...admin,
@@ -226,6 +232,34 @@ class MockPrismaServiceMultiTenant {
   middlewareInstance = {
     findMany: jest.fn().mockResolvedValue([]),
     findUnique: jest.fn().mockResolvedValue(null),
+  };
+
+  // IpBlacklist 操作 (用于 IpBlacklistService)
+  ipBlacklist = {
+    findFirst: jest.fn().mockResolvedValue(null),
+    findMany: jest.fn().mockResolvedValue([]),
+    create: jest.fn().mockResolvedValue({ id: 'blacklist-1' }),
+    update: jest.fn().mockResolvedValue({ id: 'blacklist-1' }),
+    delete: jest.fn().mockResolvedValue({ id: 'deleted' }),
+    deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    count: jest.fn().mockResolvedValue(0),
+  };
+
+  // LoginAttempt 操作
+  loginAttempt = {
+    findMany: jest.fn().mockResolvedValue([]),
+    findFirst: jest.fn().mockResolvedValue(null),
+    create: jest.fn().mockResolvedValue({ id: 'attempt-1' }),
+    deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    count: jest.fn().mockResolvedValue(0),
+  };
+
+  // AuditLog 操作
+  auditLog = {
+    findMany: jest.fn().mockResolvedValue([]),
+    findFirst: jest.fn().mockResolvedValue(null),
+    create: jest.fn().mockResolvedValue({ id: 'audit-1' }),
+    count: jest.fn().mockResolvedValue(0),
   };
 
   $transaction = jest.fn().mockImplementation(async (operations) => {

@@ -1,0 +1,87 @@
+version: '3.8'
+
+# MT5 Platform HTTPS Gateway Configuration
+# Usage: docker-compose -f docker-compose.https.yml up -d
+
+services:
+  nginx-gateway:
+    image: nginx:alpine
+    container_name: mt5-gateway-https
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Nginx configuration
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl.conf:/etc/nginx/ssl.conf:ro
+      - ./https.conf:/etc/nginx/conf.d/default.conf:ro
+      # SSL certificates (mount your certificates here)
+      - ./ssl:/etc/nginx/ssl:ro
+      # Let's Encrypt ACME challenge
+      - ./certbot/www:/var/www/certbot:ro
+      # Static frontend files
+      - ../../apps/tenant-console/dist:/usr/share/nginx/html:ro
+      # Logs
+      - ./logs:/var/log/nginx
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      - mt5-network
+    depends_on:
+      - tenant-api
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/nginx-health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: Certbot for Let's Encrypt certificates
+  certbot:
+    image: certbot/certbot
+    container_name: mt5-certbot
+    volumes:
+      - ./ssl:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    profiles:
+      - letsencrypt
+
+networks:
+  mt5-network:
+    external: true
+
+# SSL Certificate Setup Instructions:
+#
+# Option 1: Self-signed certificates (development only)
+# --------------------------------------------------------
+# mkdir -p ./ssl
+# openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+#   -keyout ./ssl/privkey.pem \
+#   -out ./ssl/fullchain.pem \
+#   -subj "/CN=localhost"
+#
+# Option 2: Let's Encrypt (production)
+# --------------------------------------------------------
+# 1. Start with HTTP only first:
+#    docker-compose -f docker-compose.https.yml up -d nginx-gateway
+#
+# 2. Run certbot to get certificate:
+#    docker run -it --rm \
+#      -v $(pwd)/ssl:/etc/letsencrypt \
+#      -v $(pwd)/certbot/www:/var/www/certbot \
+#      certbot/certbot certonly --webroot \
+#      --webroot-path=/var/www/certbot \
+#      -d your-domain.com
+#
+# 3. Restart nginx:
+#    docker-compose -f docker-compose.https.yml restart nginx-gateway
+#
+# 4. Enable auto-renewal:
+#    docker-compose -f docker-compose.https.yml --profile letsencrypt up -d
+#
+# DH Parameters (optional but recommended):
+# --------------------------------------------------------
+# openssl dhparam -out ./ssl/dhparam.pem 4096
+# Then uncomment ssl_dhparam in ssl.conf

@@ -1,14 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MtServerService } from '../middleware-proxy/services/mt-server.service';
+import { AccountLockoutService } from '../security/account-lockout.service';
+import { PasswordService } from '../security/password.service';
+import { AuditLoggerService } from '../security/audit-logger.service';
+import { MiddlewareAuthService } from '../middleware-proxy/services/middleware-auth.service';
 import { TenantRole } from '@prisma/client';
-
-// Mock bcrypt
-jest.mock('bcrypt');
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -51,6 +51,41 @@ describe('AuthService', () => {
     getServers: jest.fn().mockResolvedValue({ total: 0, servers: [] }),
   };
 
+  const mockAccountLockoutService = {
+    getLockoutStatus: jest.fn().mockResolvedValue({
+      isLocked: false,
+      remainingAttempts: 5,
+      lockoutUntil: null,
+    }),
+    recordFailedAttempt: jest.fn().mockResolvedValue({
+      isLocked: false,
+      remainingAttempts: 4,
+      lockoutUntil: null,
+    }),
+    resetFailedAttempts: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const mockPasswordService = {
+    hashPassword: jest.fn().mockResolvedValue('hashed-password'),
+    verifyPassword: jest.fn().mockResolvedValue(true),
+    validatePassword: jest.fn().mockReturnValue({ isValid: true, errors: [] }),
+  };
+
+  const mockAuditLoggerService = {
+    logSecurityEvent: jest.fn(),
+    logUserAction: jest.fn(),
+    logAdminAction: jest.fn(),
+    logLoginSuccess: jest.fn(),
+    logLoginFailure: jest.fn(),
+    logPasswordChange: jest.fn(),
+  };
+
+  const mockMiddlewareAuthService = {
+    generateServiceToken: jest.fn().mockResolvedValue('mock-service-token'),
+    generatePoolModeToken: jest.fn().mockResolvedValue('mock-pool-mode-token'),
+    validateServiceToken: jest.fn().mockResolvedValue({ valid: true }),
+  };
+
   const mockAdmin = {
     id: 'admin-1',
     email: 'admin@test.com',
@@ -60,9 +95,13 @@ describe('AuthService', () => {
     isActive: true,
     tenantId: 'tenant-1',
     lastLogin: null,
+    lastLoginIp: null,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
     tenant: {
       id: 'tenant-1',
       name: 'Test Tenant',
+      code: 'test-tenant',
       status: 'ACTIVE',
       expiresAt: null,
     },
@@ -76,6 +115,10 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: MtServerService, useValue: mockMtServerService },
+        { provide: MiddlewareAuthService, useValue: mockMiddlewareAuthService },
+        { provide: AccountLockoutService, useValue: mockAccountLockoutService },
+        { provide: PasswordService, useValue: mockPasswordService },
+        { provide: AuditLoggerService, useValue: mockAuditLoggerService },
       ],
     }).compile();
 
@@ -90,12 +133,12 @@ describe('AuthService', () => {
 
   describe('login', () => {
     it('应该成功登录并返回 tokens', async () => {
-      mockPrismaService.tenantAdmin.findMany.mockResolvedValue([mockAdmin]);
+      mockPrismaService.tenantAdmin.findUnique.mockResolvedValue(mockAdmin);
       mockPrismaService.middlewareInstance.findMany.mockResolvedValue([
         { id: 'instance-1' },
       ]);
       mockPrismaService.tenantAdmin.update.mockResolvedValue(mockAdmin);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockPasswordService.verifyPassword.mockResolvedValue(true);
       mockJwtService.signAsync.mockResolvedValue('test-token');
 
       const result = await service.login({
@@ -110,7 +153,7 @@ describe('AuthService', () => {
     });
 
     it('用户不存在时应抛出异常', async () => {
-      mockPrismaService.tenantAdmin.findMany.mockResolvedValue([]);
+      mockPrismaService.tenantAdmin.findUnique.mockResolvedValue(null);
 
       await expect(
         service.login({ email: 'unknown@test.com', password: 'password' }),
@@ -118,8 +161,9 @@ describe('AuthService', () => {
     });
 
     it('密码错误时应抛出异常', async () => {
-      mockPrismaService.tenantAdmin.findMany.mockResolvedValue([mockAdmin]);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      mockPrismaService.tenantAdmin.findUnique.mockResolvedValue(mockAdmin);
+      // 服务使用 passwordService.verifyPassword 而不是直接使用 bcrypt
+      mockPasswordService.verifyPassword.mockResolvedValue(false);
 
       await expect(
         service.login({ email: 'admin@test.com', password: 'wrongpassword' }),
@@ -128,8 +172,8 @@ describe('AuthService', () => {
 
     it('账号被禁用时应抛出异常', async () => {
       const inactiveAdmin = { ...mockAdmin, isActive: false };
-      mockPrismaService.tenantAdmin.findMany.mockResolvedValue([inactiveAdmin]);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockPrismaService.tenantAdmin.findUnique.mockResolvedValue(inactiveAdmin);
+      mockPasswordService.verifyPassword.mockResolvedValue(true);
 
       await expect(
         service.login({ email: 'admin@test.com', password: 'password123' }),
@@ -141,10 +185,8 @@ describe('AuthService', () => {
         ...mockAdmin,
         tenant: { ...mockAdmin.tenant, status: 'SUSPENDED' },
       };
-      mockPrismaService.tenantAdmin.findMany.mockResolvedValue([
-        adminWithInactiveTenant,
-      ]);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockPrismaService.tenantAdmin.findUnique.mockResolvedValue(adminWithInactiveTenant);
+      mockPasswordService.verifyPassword.mockResolvedValue(true);
 
       await expect(
         service.login({ email: 'admin@test.com', password: 'password123' }),
@@ -205,8 +247,13 @@ describe('AuthService', () => {
   describe('changePassword', () => {
     it('应该成功修改密码', async () => {
       mockPrismaService.tenantAdmin.findUnique.mockResolvedValue(mockAdmin);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      (bcrypt.hash as jest.Mock).mockResolvedValue('new-hashed-password');
+      // 服务调用两次 verifyPassword:
+      // 1. 验证当前密码 (应该返回 true)
+      // 2. 检查新密码是否与旧密码相同 (应该返回 false)
+      mockPasswordService.verifyPassword
+        .mockResolvedValueOnce(true)  // 当前密码正确
+        .mockResolvedValueOnce(false); // 新密码与旧密码不同
+      mockPasswordService.hashPassword.mockResolvedValue('new-hashed-password');
       mockPrismaService.tenantAdmin.update.mockResolvedValue(mockAdmin);
 
       await expect(
@@ -221,7 +268,7 @@ describe('AuthService', () => {
 
     it('当前密码错误时应抛出异常', async () => {
       mockPrismaService.tenantAdmin.findUnique.mockResolvedValue(mockAdmin);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      mockPasswordService.verifyPassword.mockResolvedValue(false);
 
       await expect(
         service.changePassword('admin-1', {

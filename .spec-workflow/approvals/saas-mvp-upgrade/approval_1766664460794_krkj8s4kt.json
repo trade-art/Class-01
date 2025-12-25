@@ -1,0 +1,12 @@
+{
+  "id": "approval_1766664460794_krkj8s4kt",
+  "title": "Tasks Document - 任务分解文档",
+  "filePath": ".spec-workflow/specs/saas-mvp-upgrade/tasks.md",
+  "type": "document",
+  "status": "approved",
+  "createdAt": "2025-12-25T12:07:40.794Z",
+  "category": "spec",
+  "categoryName": "saas-mvp-upgrade",
+  "response": "通过仪表板批准",
+  "respondedAt": "2025-12-25T12:07:44.935Z"
+}

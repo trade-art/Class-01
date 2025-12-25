@@ -62,9 +62,9 @@ export class HealthCheckerService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 定时健康检查任务 (每分钟执行)
+   * 定时健康检查任务 (每15秒执行)
    */
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron('*/15 * * * * *')
   async scheduledHealthCheck(): Promise<void> {
     if (this.isRunning) {
       this.logger.warn('Health check already running, skipping this cycle');
@@ -424,6 +424,7 @@ export class HealthCheckerService implements OnModuleInit, OnModuleDestroy {
           consecutiveFailures: this.failureCounters.get(result.instanceId) || 0,
           circuitBreakerState: this.circuitBreaker.getState(result.instanceId).state,
           lastCheckedAt: result.checkedAt,
+          lastHealthCheck: result.checkedAt,
         },
       }),
     );

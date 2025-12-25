@@ -4,3 +4,5 @@ export * from './dto';
 export * from './decorators';
 export * from './guards';
 export * from './strategies';
+export * from './services';
+export * from './interfaces';

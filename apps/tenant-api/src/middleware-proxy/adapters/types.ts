@@ -251,6 +251,293 @@ export interface UpdateUserGroupParams {
 }
 
 // ============================================================
+// 交易操作类型
+// ============================================================
+
+/**
+ * 开仓请求参数
+ */
+export interface OpenOrderParams {
+  login: number;
+  symbol: string;
+  type: OrderType;
+  volume: number;
+  price?: number; // 市价单可不传
+  sl?: number;
+  tp?: number;
+  deviation?: number;
+  comment?: string;
+  magic?: number;
+}
+
+/**
+ * 平仓请求参数
+ */
+export interface ClosePositionParams {
+  login: number;
+  ticket: number;
+  volume?: number; // 部分平仓
+  price?: number;
+  deviation?: number;
+  comment?: string;
+}
+
+/**
+ * 修改持仓参数
+ */
+export interface ModifyPositionParams {
+  login: number;
+  ticket: number;
+  sl?: number;
+  tp?: number;
+}
+
+/**
+ * 挂单请求参数
+ */
+export interface PendingOrderParams {
+  login: number;
+  symbol: string;
+  type: OrderType; // 限价单/止损单类型
+  volume: number;
+  price: number;
+  sl?: number;
+  tp?: number;
+  expiration?: Date;
+  comment?: string;
+  magic?: number;
+}
+
+/**
+ * 修改挂单参数
+ */
+export interface ModifyOrderParams {
+  login: number;
+  ticket: number;
+  price?: number;
+  sl?: number;
+  tp?: number;
+  expiration?: Date;
+}
+
+/**
+ * 取消挂单参数
+ */
+export interface CancelOrderParams {
+  login: number;
+  ticket: number;
+}
+
+/**
+ * 余额操作参数
+ */
+export interface BalanceOperationParams {
+  login: number;
+  type: BalanceOperationType;
+  amount: number;
+  comment?: string;
+}
+
+export enum BalanceOperationType {
+  DEPOSIT = 'deposit',
+  WITHDRAWAL = 'withdrawal',
+  CREDIT = 'credit',
+  CORRECTION = 'correction',
+}
+
+/**
+ * 交易操作结果
+ */
+export interface TradeResult {
+  success: boolean;
+  ticket?: number; // 订单/持仓票号
+  retcode?: number; // MT5 返回码
+  message?: string;
+  volume?: number; // 实际成交量
+  price?: number; // 实际成交价
+}
+
+/**
+ * 异步任务状态
+ */
+export interface AsyncTaskStatus {
+  taskId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  result?: TradeResult;
+  error?: string;
+  createdAt: Date;
+  completedAt?: Date;
+}
+
+// ============================================================
+// 用户管理操作类型
+// ============================================================
+
+/**
+ * 创建用户参数
+ */
+export interface CreateUserParams {
+  name: string;
+  group: string;
+  password: string;
+  investorPassword?: string;
+  email?: string;
+  phone?: string;
+  leverage?: number;
+  comment?: string;
+  agent?: number;
+  balance?: number;
+}
+
+/**
+ * 更新用户参数
+ */
+export interface UpdateUserParams {
+  login: number;
+  name?: string;
+  group?: string;
+  email?: string;
+  phone?: string;
+  leverage?: number;
+  comment?: string;
+  agent?: number;
+}
+
+/**
+ * 修改密码参数
+ */
+export interface ChangePasswordParams {
+  login: number;
+  password: string;
+  type: 'main' | 'investor';
+}
+
+/**
+ * 创建用户结果
+ */
+export interface CreateUserResult {
+  success: boolean;
+  login?: number;
+  message?: string;
+}
+
+// ============================================================
+// 市场数据类型
+// ============================================================
+
+/**
+ * K线数据
+ */
+export interface CandleData {
+  time: Date;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  tickVolume: number;
+  volume?: number;
+  spread?: number;
+}
+
+/**
+ * Tick 数据
+ */
+export interface TickData {
+  symbol: string;
+  time: Date;
+  bid: number;
+  ask: number;
+  last?: number;
+  volume?: number;
+  flags?: number;
+}
+
+/**
+ * K线查询参数
+ */
+export interface GetCandlesParams {
+  symbol: string;
+  timeframe: Timeframe;
+  from?: Date;
+  to?: Date;
+  count?: number;
+}
+
+/**
+ * Tick 查询参数
+ */
+export interface GetTicksParams {
+  symbol: string;
+  from?: Date;
+  to?: Date;
+  count?: number;
+}
+
+export enum Timeframe {
+  M1 = 'M1',
+  M5 = 'M5',
+  M15 = 'M15',
+  M30 = 'M30',
+  H1 = 'H1',
+  H4 = 'H4',
+  D1 = 'D1',
+  W1 = 'W1',
+  MN1 = 'MN1',
+}
+
+// ============================================================
+// 批量操作类型
+// ============================================================
+
+/**
+ * 批量开仓参数
+ */
+export interface BatchOpenOrderParams {
+  orders: OpenOrderParams[];
+}
+
+/**
+ * 批量平仓参数
+ */
+export interface BatchClosePositionParams {
+  positions: ClosePositionParams[];
+}
+
+/**
+ * 批量操作结果
+ */
+export interface BatchOperationResult {
+  total: number;
+  success: number;
+  failed: number;
+  results: TradeResult[];
+}
+
+/**
+ * 批量查询参数
+ */
+export interface BatchQueryParams {
+  logins: number[];
+}
+
+/**
+ * 批量账户查询结果
+ */
+export interface BatchAccountsResult {
+  accounts: TradingUser[];
+  total: number;
+}
+
+/**
+ * 批量持仓查询结果
+ */
+export interface BatchPositionsResult {
+  positions: TradingPosition[];
+  total: number;
+  byLogin: Record<number, TradingPosition[]>;
+}
+
+// ============================================================
 // 服务器状态
 // ============================================================
 
@@ -271,6 +558,22 @@ export interface AdapterConfig {
   timeout?: number;
   retryAttempts?: number;
   retryDelay?: number;
+  /**
+   * Service Token 配置 (用于 ServiceToken 认证模式)
+   * 包含已加密的 Manager 凭证
+   */
+  serviceToken?: {
+    /** JWT Service Token */
+    token: string;
+    /** Token 类型 (Bearer) */
+    tokenType: string;
+    /** 过期时间 (Unix 时间戳) */
+    expiresAt: number;
+  };
+  /**
+   * 额外的认证头信息
+   */
+  authHeaders?: Record<string, string>;
 }
 
 // ============================================================
@@ -290,4 +593,6 @@ export interface MtServerConfig {
   serverAddress: string;
   managerLogin: number;
   managerPassword: string;
+  /** Manager UUID - 用于 Service Token 认证和连接池查找 */
+  managerId?: string;
 }

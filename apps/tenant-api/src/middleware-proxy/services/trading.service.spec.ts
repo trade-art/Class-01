@@ -37,6 +37,7 @@ describe('TradingService', () => {
     mockAdapter = {
       platformType: PlatformType.MT5,
       isAuthenticated: jest.fn().mockReturnValue(true),
+      isTokenExpiring: jest.fn().mockReturnValue(false),
       authenticate: jest.fn().mockResolvedValue('token'),
       refreshToken: jest.fn().mockResolvedValue('new-token'),
       getUsers: jest.fn(),
@@ -70,6 +71,9 @@ describe('TradingService', () => {
       removeAdapter: jest.fn(),
       removeAdaptersByTenant: jest.fn(),
       getStats: jest.fn(),
+      isCircuitBreakerOpen: jest.fn().mockReturnValue(false),
+      recordSuccess: jest.fn(),
+      recordFailure: jest.fn(),
     } as unknown as jest.Mocked<AdapterFactory>;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -498,6 +502,124 @@ describe('TradingService', () => {
       expect(mockMtServerService.getServerConfig).toHaveBeenCalledWith(
         'tenant-2',
         'server-2',
+      );
+    });
+  });
+
+  describe('令牌刷新逻辑', () => {
+    beforeEach(() => {
+      // 添加 isTokenExpiring mock
+      (mockAdapter as any).isTokenExpiring = jest.fn();
+    });
+
+    it('令牌即将过期时应主动刷新', async () => {
+      mockAdapter.isAuthenticated.mockReturnValue(true);
+      (mockAdapter as any).isTokenExpiring.mockReturnValue(true);
+      mockAdapter.refreshToken.mockResolvedValue('new-token');
+      mockAdapter.getUsers.mockResolvedValue({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        hasMore: false,
+      });
+
+      await service.getUsers(mockTenantContext);
+
+      expect(mockAdapter.refreshToken).toHaveBeenCalled();
+    });
+
+    it('令牌未即将过期时不应刷新', async () => {
+      mockAdapter.isAuthenticated.mockReturnValue(true);
+      (mockAdapter as any).isTokenExpiring.mockReturnValue(false);
+      mockAdapter.getUsers.mockResolvedValue({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        hasMore: false,
+      });
+
+      await service.getUsers(mockTenantContext);
+
+      expect(mockAdapter.refreshToken).not.toHaveBeenCalled();
+    });
+
+    it('令牌刷新失败时应重新认证', async () => {
+      mockAdapter.isAuthenticated.mockReturnValue(true);
+      (mockAdapter as any).isTokenExpiring.mockReturnValue(true);
+      mockAdapter.refreshToken.mockRejectedValue(new Error('Refresh failed'));
+      mockAdapter.getUsers.mockResolvedValue({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        hasMore: false,
+      });
+
+      await service.getUsers(mockTenantContext);
+
+      expect(mockAdapter.refreshToken).toHaveBeenCalled();
+      expect(mockAdapter.authenticate).toHaveBeenCalled();
+    });
+  });
+
+  describe('熔断器集成', () => {
+    beforeEach(() => {
+      // 添加熔断器相关 mock
+      mockAdapterFactory.isCircuitBreakerOpen = jest.fn().mockReturnValue(false);
+      mockAdapterFactory.recordSuccess = jest.fn();
+      mockAdapterFactory.recordFailure = jest.fn();
+      (mockAdapter as any).isTokenExpiring = jest.fn().mockReturnValue(false);
+    });
+
+    it('熔断器打开时应抛出 MiddlewareUnavailableException', async () => {
+      mockAdapterFactory.isCircuitBreakerOpen.mockReturnValue(true);
+
+      await expect(service.getAdapter(mockTenantContext)).rejects.toThrow(
+        '暂时不可用',
+      );
+    });
+
+    it('熔断器关闭时应正常返回适配器', async () => {
+      mockAdapterFactory.isCircuitBreakerOpen.mockReturnValue(false);
+
+      const adapter = await service.getAdapter(mockTenantContext);
+
+      expect(adapter).toBe(mockAdapter);
+    });
+
+    it('executeWithCircuitBreaker 成功时应记录成功', async () => {
+      mockAdapter.getUsers.mockResolvedValue({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        hasMore: false,
+      });
+
+      await service.executeWithCircuitBreaker(mockTenantContext, async (adapter) => {
+        return adapter.getUsers();
+      });
+
+      expect(mockAdapterFactory.recordSuccess).toHaveBeenCalledWith(
+        'tenant-1',
+        'server-1',
+      );
+    });
+
+    it('executeWithCircuitBreaker 失败时应记录失败', async () => {
+      mockAdapter.getUsers.mockRejectedValue(new Error('API Error'));
+
+      await expect(
+        service.executeWithCircuitBreaker(mockTenantContext, async (adapter) => {
+          return adapter.getUsers();
+        }),
+      ).rejects.toThrow('API Error');
+
+      expect(mockAdapterFactory.recordFailure).toHaveBeenCalledWith(
+        'tenant-1',
+        'server-1',
       );
     });
   });

@@ -9,8 +9,12 @@ import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { MiddlewareProxyService } from '../src/middleware-proxy';
+import { AccountLockoutService } from '../src/security/account-lockout.service';
+import { RateLimiterService } from '../src/security/rate-limiter.service';
 import { MockPrismaService } from './mocks/prisma.mock';
 import { MockMiddlewareProxyService } from './mocks/middleware-proxy.mock';
+import { MockAccountLockoutService } from './mocks/account-lockout.mock';
+import { MockRateLimiterService } from './mocks/rate-limiter.mock';
 import {
   TEST_CREDENTIALS,
   TEST_TOKENS,
@@ -28,9 +32,13 @@ import {
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
   let mockPrismaService: MockPrismaService;
+  let mockAccountLockoutService: MockAccountLockoutService;
+  let mockRateLimiterService: MockRateLimiterService;
 
   beforeAll(async () => {
     mockPrismaService = new MockPrismaService();
+    mockAccountLockoutService = new MockAccountLockoutService();
+    mockRateLimiterService = new MockRateLimiterService();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -39,6 +47,10 @@ describe('AuthController (e2e)', () => {
       .useValue(mockPrismaService)
       .overrideProvider(MiddlewareProxyService)
       .useClass(MockMiddlewareProxyService)
+      .overrideProvider(AccountLockoutService)
+      .useValue(mockAccountLockoutService)
+      .overrideProvider(RateLimiterService)
+      .useValue(mockRateLimiterService)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -62,6 +74,8 @@ describe('AuthController (e2e)', () => {
 
   beforeEach(() => {
     mockPrismaService.resetMocks();
+    mockAccountLockoutService.resetMocks();
+    mockRateLimiterService.resetMocks();
   });
 
   // ==================== POST /tenant/auth/login ====================
@@ -267,7 +281,7 @@ describe('AuthController (e2e)', () => {
         .set('Authorization', `Bearer ${TEST_TOKENS.validAdmin}`)
         .send({
           currentPassword: 'password123',
-          newPassword: 'newPassword456',
+          newPassword: 'NewPassword456!', // 符合密码策略: 大写、小写、数字、特殊字符
         })
         .expect(204);
     });
@@ -320,10 +334,11 @@ describe('AuthController (e2e)', () => {
         .expect(204);
     });
 
-    it('无 Token 应返回 401', async () => {
+    it('无 Token 也应返回 204（允许匿名登出）', async () => {
+      // logout 端点标记为 @Public()，允许未认证请求清除 cookie
       await request(app.getHttpServer())
         .post('/tenant/auth/logout')
-        .expect(401);
+        .expect(204);
     });
   });
 

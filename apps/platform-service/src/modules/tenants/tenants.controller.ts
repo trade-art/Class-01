@@ -106,6 +106,25 @@ export class TenantsController {
     return this.tenantsService.suspend(id);
   }
 
+  @Get(':id/related-count')
+  @ApiOperation({ summary: '获取租户关联数据统计（用于删除确认）' })
+  @ApiParam({ name: 'id', description: 'Tenant ID' })
+  @ApiResponse({
+    status: 200,
+    description: '关联数据统计',
+    schema: {
+      type: 'object',
+      properties: {
+        instances: { type: 'number', description: '实例数量' },
+        admins: { type: 'number', description: '管理员数量' },
+        mtServers: { type: 'number', description: 'MT服务器数量' },
+      },
+    },
+  })
+  async getRelatedDataCount(@Param('id') id: string) {
+    return this.tenantsService.getRelatedDataCount(id);
+  }
+
   // ==================== REQ-3: 白标配置端点 ====================
 
   @Get(':id/branding')

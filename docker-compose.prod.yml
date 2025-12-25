@@ -1,23 +1,366 @@
-version: '3.8'
-
-# 生产环境：仅运行 Redis
-# 后端服务在本机运行，数据库在本机安装
+# =============================================================================
+# MT5 Platform - Production Docker Compose Override
+# Production environment container orchestration with enhanced configuration
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile gateway up -d
+# =============================================================================
 
 services:
-  redis:
-    image: redis:7-alpine
-    container_name: mt5-redis
+  # ===========================================================================
+  # Database Services (Production Configuration)
+  # ===========================================================================
+
+  postgres:
     restart: always
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "10"
+        labels: "service,environment"
+    labels:
+      - "com.mt5.service=database"
+      - "com.mt5.environment=production"
+
+  redis:
+    restart: always
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+        labels: "service,environment"
+    labels:
+      - "com.mt5.service=cache"
+      - "com.mt5.environment=production"
+
+  # ===========================================================================
+  # Backend Services (Production Configuration)
+  # ===========================================================================
+
+  tenant-api:
+    restart: always
+    environment:
+      NODE_ENV: production
+      # Required secrets (must be provided)
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      MIDDLEWARE_PASSWORD_KEY: ${MIDDLEWARE_PASSWORD_KEY:?MIDDLEWARE_PASSWORD_KEY is required}
+      # Production settings
+      LOG_LEVEL: ${LOG_LEVEL:-warn}
+      METRICS_ENABLED: "true"
+      TRACING_ENABLED: "true"
+      TRACING_SAMPLE_RATE: ${TRACING_SAMPLE_RATE:-0.1}
+    # Remove port exposure in production (use gateway)
+    ports: []
+    expose:
+      - "3000"
+    deploy:
+      mode: replicated
+      replicas: ${TENANT_API_REPLICAS:-2}
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+        max_failure_ratio: 0.3
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis123}", "ping"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "10"
+        labels: "service,environment,tenant"
+    labels:
+      - "com.mt5.service=tenant-api"
+      - "com.mt5.environment=production"
+
+  platform-service:
+    restart: always
+    environment:
+      NODE_ENV: production
+      # Required secrets
+      DATABASE_URL: ${PLATFORM_DATABASE_URL:?PLATFORM_DATABASE_URL is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      # Production settings
+      LOG_LEVEL: ${LOG_LEVEL:-warn}
+      METRICS_ENABLED: "true"
+      TRACING_ENABLED: "true"
+      TRACING_SAMPLE_RATE: ${TRACING_SAMPLE_RATE:-0.1}
+    # Remove port exposure in production (use gateway)
+    ports: []
+    expose:
+      - "3001"
+    deploy:
+      mode: replicated
+      replicas: ${PLATFORM_SERVICE_REPLICAS:-2}
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+        max_failure_ratio: 0.3
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "10"
+        labels: "service,environment"
+    labels:
+      - "com.mt5.service=platform-service"
+      - "com.mt5.environment=production"
+
+  # ===========================================================================
+  # Gateway Service (Production Configuration)
+  # ===========================================================================
+
+  gateway:
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    deploy:
+      mode: replicated
+      replicas: ${GATEWAY_REPLICAS:-2}
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+      update_config:
+        parallelism: 1
+        delay: 5s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 60s
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/nginx-health"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "10"
+        labels: "service,environment"
+    labels:
+      - "com.mt5.service=gateway"
+      - "com.mt5.environment=production"
+    profiles:
+      - production
 
-volumes:
-  redis_data:
+  # ===========================================================================
+  # Frontend Services (Static Build - Production)
+  # ===========================================================================
+
+  # Tenant Console - Production build served by Nginx
+  tenant-console-prod:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.tenant-console
+      args:
+        - VITE_API_BASE_URL=${VITE_TENANT_API_URL:-/api}
+    image: mt5-tenant-console:${APP_VERSION:-latest}
+    container_name: mt5-tenant-console-prod
+    restart: always
+    expose:
+      - "80"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - mt5-frontend
+    labels:
+      - "com.mt5.service=tenant-console"
+      - "com.mt5.environment=production"
+    profiles:
+      - production
+
+  # Platform Console - Production build served by Nginx
+  platform-console-prod:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.platform-console
+      args:
+        - VITE_API_BASE_URL=${VITE_PLATFORM_API_URL:-/api}
+    image: mt5-platform-console:${APP_VERSION:-latest}
+    container_name: mt5-platform-console-prod
+    restart: always
+    expose:
+      - "80"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - mt5-frontend
+    labels:
+      - "com.mt5.service=platform-console"
+      - "com.mt5.environment=production"
+    profiles:
+      - production
+
+# =============================================================================
+# Networks (Production Configuration)
+# =============================================================================
+networks:
+  mt5-backend:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1450
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16
+
+  mt5-frontend:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1450
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.29.0.0/16
+
+# =============================================================================
+# Production Notes
+# =============================================================================
+#
+# Required Environment Variables:
+# - POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+# - DATABASE_URL, PLATFORM_DATABASE_URL
+# - REDIS_PASSWORD
+# - JWT_SECRET, JWT_REFRESH_SECRET
+# - MIDDLEWARE_PASSWORD_KEY
+#
+# Optional Configuration:
+# - TENANT_API_REPLICAS (default: 2)
+# - PLATFORM_SERVICE_REPLICAS (default: 2)
+# - GATEWAY_REPLICAS (default: 2)
+# - LOG_LEVEL (default: warn)
+# - TRACING_SAMPLE_RATE (default: 0.1)
+#
+# Deployment Commands:
+#
+# Start all services:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Start with gateway:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile production up -d
+#
+# Scale services:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --scale tenant-api=3
+#
+# View logs:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f tenant-api
+#
+# Health check:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+# =============================================================================

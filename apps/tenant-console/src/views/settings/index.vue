@@ -72,6 +72,41 @@
           <span class="i-carbon-chevron-right"></span>
         </div>
       </n-card>
+
+      <n-card
+        hoverable
+        class="settings-card"
+        @click="navigateTo('/settings/subscription')"
+      >
+        <div class="settings-icon" style="background-color: #722ed1;">
+          <span class="i-carbon-chart-pie text-white text-2xl"></span>
+        </div>
+        <div class="settings-content">
+          <h3 class="settings-title">{{ t('settings.subscription') }}</h3>
+          <p class="settings-desc">{{ t('settings.subscriptionDesc') }}</p>
+        </div>
+        <div class="settings-arrow">
+          <span class="i-carbon-chevron-right"></span>
+        </div>
+      </n-card>
+
+      <n-card
+        v-if="authStore.hasPermission('admin')"
+        hoverable
+        class="settings-card"
+        @click="navigateTo('/settings/middleware-instances')"
+      >
+        <div class="settings-icon" style="background-color: #13c2c2;">
+          <span class="i-carbon-cloud-services text-white text-2xl"></span>
+        </div>
+        <div class="settings-content">
+          <h3 class="settings-title">{{ t('settings.middlewareInstances') }}</h3>
+          <p class="settings-desc">{{ t('settings.middlewareInstancesDesc') }}</p>
+        </div>
+        <div class="settings-arrow">
+          <span class="i-carbon-chevron-right"></span>
+        </div>
+      </n-card>
     </div>
   </div>
 </template>

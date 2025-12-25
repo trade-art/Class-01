@@ -227,6 +227,18 @@ const menuOptions = computed<MenuOption[]>(() => {
                 label: t('menu.apiKeys'),
                 key: 'api-keys',
               },
+              {
+                label: t('menu.mtServers'),
+                key: 'mt-servers',
+              },
+              {
+                label: t('menu.mtManagers'),
+                key: 'mt-managers',
+              },
+              {
+                label: t('menu.middlewareInstances'),
+                key: 'middleware-instances',
+              },
             ]
           : []),
         {
@@ -300,6 +312,9 @@ const handleMenuSelect = (key: string) => {
     branding: '/settings/branding',
     admins: '/settings/admins',
     'api-keys': '/settings/api-keys',
+    'mt-servers': '/mt-servers',
+    'mt-managers': '/mt-managers',
+    'middleware-instances': '/settings/middleware-instances',
     profile: '/settings/profile',
     notifications: '/settings/notifications',
   }

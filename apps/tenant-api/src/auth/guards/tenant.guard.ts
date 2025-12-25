@@ -2,6 +2,7 @@ import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtPayload } from '../decorators/current-user.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { SKIP_INSTANCE_CHECK_KEY } from '../decorators/skip-instance-check.decorator';
 import { Reflector } from '@nestjs/core';
 import { BusinessException, ErrorCodes } from '../../common';
 
@@ -67,30 +68,40 @@ export class TenantGuard implements CanActivate {
       );
     }
 
+    // 检查是否跳过实例检查（租户级别数据接口）
+    const skipInstanceCheck = this.reflector.getAllAndOverride<boolean>(
+      SKIP_INSTANCE_CHECK_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+
+    // 如果标记了跳过实例检查，或者没有 instanceId，则不检查实例状态
+    if (skipInstanceCheck || !user.instanceId) {
+      return true;
+    }
+
     // 检查实例状态
-    if (user.instanceId) {
-      const instance = await this.prisma.middlewareInstance.findUnique({
-        where: { id: user.instanceId },
-        select: {
-          id: true,
-          status: true,
-        },
-      });
+    const instance = await this.prisma.middlewareInstance.findUnique({
+      where: { id: user.instanceId },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
 
-      if (!instance) {
-        throw BusinessException.notFound(
-          ErrorCodes.INSTANCE_404_001,
-          '实例不存在',
-        );
-      }
+    if (!instance) {
+      throw BusinessException.notFound(
+        ErrorCodes.INSTANCE_404_001,
+        '实例不存在',
+      );
+    }
 
-      // 使用 ONLINE 大写
-      if (instance.status !== 'ONLINE') {
-        throw BusinessException.serviceUnavailable(
-          ErrorCodes.INSTANCE_503_001,
-          `MT5 实例离线: ${instance.status}`,
-        );
-      }
+    // 允许 ONLINE 和 DEGRADED 状态 (DEGRADED 表示部分功能可用)
+    // 只拒绝 OFFLINE、MAINTENANCE 等完全不可用的状态
+    if (instance.status !== 'ONLINE' && instance.status !== 'DEGRADED') {
+      throw BusinessException.serviceUnavailable(
+        ErrorCodes.INSTANCE_503_001,
+        `MT5 实例离线: ${instance.status}`,
+      );
     }
 
     return true;

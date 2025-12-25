@@ -25,19 +25,6 @@
         label-width="0"
         size="large"
       >
-        <!-- 白标模式下隐藏租户代码输入框 -->
-        <n-form-item v-if="!isWhiteLabelDomain" path="tenantCode">
-          <n-input
-            v-model:value="formData.tenantCode"
-            :placeholder="t('auth.tenantCodePlaceholder')"
-            @keyup.enter="handleLogin"
-          >
-            <template #prefix>
-              <span class="i-carbon-enterprise text-secondary"></span>
-            </template>
-          </n-input>
-        </n-form-item>
-
         <n-form-item path="email">
           <n-input
             v-model:value="formData.email"
@@ -108,7 +95,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
@@ -138,31 +125,13 @@ const tenantStore = useTenantStore()
 const formRef = ref<FormInst | null>(null)
 const loading = ref(false)
 
-// 白标模式：当使用自定义域名时，不需要显示租户代码输入框
-// 检测是否为白标域名（非 localhost 和非默认平台域名）
-const isWhiteLabelDomain = computed(() => {
-  const hostname = window.location.hostname
-  // 本地开发或 localhost 显示租户代码
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return false
-  }
-  // 可以在这里添加平台默认域名的检查
-  // 如果是自定义域名，则为白标模式
-  return true
-})
-
 const formData = reactive({
-  tenantCode: '',
   email: '',
   password: '',
   rememberMe: false,
 })
 
-// 动态验证规则：白标模式下租户代码不是必填
-const rules = computed<FormRules>(() => ({
-  tenantCode: isWhiteLabelDomain.value ? [] : [
-    { required: true, message: () => t('auth.pleaseEnterTenantCode'), trigger: 'blur' },
-  ],
+const rules: FormRules = {
   email: [
     { required: true, message: () => t('auth.pleaseEnterEmail'), trigger: 'blur' },
     { type: 'email', message: () => t('auth.invalidEmail'), trigger: 'blur' },
@@ -170,7 +139,7 @@ const rules = computed<FormRules>(() => ({
   password: [
     { required: true, message: () => t('auth.pleaseEnterPassword'), trigger: 'blur' },
   ],
-}))
+}
 
 const languageOptions = [
   { label: '简体中文', key: 'zh-CN' },
@@ -186,9 +155,8 @@ const handleLogin = async () => {
 
   loading.value = true
   try {
-    // 白标模式下不传递租户代码，后端会从域名识别
-    const tenantCode = isWhiteLabelDomain.value ? undefined : formData.tenantCode
-    await authStore.login(formData.email, formData.password, tenantCode, formData.rememberMe)
+    // 邮箱全局唯一，无需租户代码
+    await authStore.login(formData.email, formData.password, undefined, formData.rememberMe)
 
     // Update tenant store with login response
     if (authStore.tenant) {

@@ -15,73 +15,58 @@
       {{ t('settings.apiKeysInfo') }}
     </n-alert>
 
+    <!-- Search and Filter -->
+    <n-card class="filter-card">
+      <n-space>
+        <n-input
+          v-model:value="searchKeyword"
+          :placeholder="t('settings.searchApiKey')"
+          clearable
+          style="width: 200px"
+          @update:value="handleSearch"
+        >
+          <template #prefix>
+            <span class="i-carbon-search"></span>
+          </template>
+        </n-input>
+        <n-select
+          v-model:value="filterStatus"
+          :options="statusOptions"
+          style="width: 120px"
+          @update:value="handleFilter"
+        />
+      </n-space>
+    </n-card>
+
     <!-- API Keys Table -->
     <n-card>
       <n-data-table
+        remote
         :columns="columns"
         :data="apiKeys"
         :loading="loading"
-        :pagination="false"
-        :row-key="(row: ApiKey) => row.id"
+        :pagination="pagination"
+        :row-key="(row: ApiKeyListItem) => row.id"
+        @update:page="handlePageChange"
+        @update:page-size="handlePageSizeChange"
       />
     </n-card>
 
     <!-- Create Modal -->
-    <n-modal
+    <CreateApiKeyModal
       v-model:show="showCreateModal"
-      :title="t('settings.createApiKey')"
-      preset="dialog"
-      style="width: 500px"
-    >
-      <n-form
-        ref="formRef"
-        :model="formData"
-        :rules="formRules"
-        label-placement="left"
-        label-width="100"
-      >
-        <n-form-item :label="t('settings.keyName')" path="name">
-          <n-input v-model:value="formData.name" :placeholder="t('settings.keyNamePlaceholder')" />
-        </n-form-item>
+      @success="handleCreateSuccess"
+    />
 
-        <n-form-item :label="t('settings.permissions')" path="permissions">
-          <n-checkbox-group v-model:value="formData.permissions">
-            <n-space vertical>
-              <n-checkbox value="read:users">{{ t('settings.permReadUsers') }}</n-checkbox>
-              <n-checkbox value="write:users">{{ t('settings.permWriteUsers') }}</n-checkbox>
-              <n-checkbox value="read:trading">{{ t('settings.permReadTrading') }}</n-checkbox>
-              <n-checkbox value="read:reports">{{ t('settings.permReadReports') }}</n-checkbox>
-            </n-space>
-          </n-checkbox-group>
-        </n-form-item>
+    <!-- Detail Modal -->
+    <ApiKeyDetailModal
+      v-model:show="showDetailModal"
+      :api-key="selectedApiKey"
+      @update="handleUpdate"
+      @revoke="handleRevoke"
+    />
 
-        <n-form-item :label="t('settings.expiresAt')" path="expiresAt">
-          <n-date-picker
-            v-model:value="formData.expiresAt"
-            type="datetime"
-            clearable
-            :placeholder="t('settings.expiresAtPlaceholder')"
-            style="width: 100%"
-          />
-        </n-form-item>
-
-        <n-form-item :label="t('settings.ipWhitelist')" path="ipWhitelist">
-          <n-dynamic-tags v-model:value="formData.ipWhitelist" />
-          <div class="hint">{{ t('settings.ipWhitelistHint') }}</div>
-        </n-form-item>
-      </n-form>
-
-      <template #action>
-        <n-space justify="end">
-          <n-button @click="showCreateModal = false">{{ t('common.cancel') }}</n-button>
-          <n-button type="primary" :loading="submitting" @click="handleSubmit">
-            {{ t('common.create') }}
-          </n-button>
-        </n-space>
-      </template>
-    </n-modal>
-
-    <!-- Show Key Modal -->
+    <!-- Show Key Modal (after create) -->
     <n-modal
       v-model:show="showKeyModal"
       :title="t('settings.apiKeyCreated')"
@@ -114,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, h } from 'vue'
+import { ref, reactive, computed, onMounted, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   NCard,
@@ -123,102 +108,127 @@ import {
   NAlert,
   NDataTable,
   NModal,
-  NForm,
-  NFormItem,
   NInput,
-  NCheckboxGroup,
-  NCheckbox,
-  NDatePicker,
-  NDynamicTags,
+  NSelect,
   NTag,
   NDropdown,
+  NTooltip,
   useMessage,
   useDialog,
   type DataTableColumns,
-  type FormInst,
-  type FormRules,
+  type PaginationProps,
 } from 'naive-ui'
-import { settingsApi } from '@/api/settings'
-import type { ApiKey } from '@/types'
+import {
+  apiKeysApi,
+  formatScopes,
+  getApiKeyStatus,
+  statusConfig,
+  type ApiKeyListItem,
+} from '@/api/api-keys'
+import CreateApiKeyModal from './components/CreateApiKeyModal.vue'
+import ApiKeyDetailModal from './components/ApiKeyDetailModal.vue'
 
 const { t } = useI18n()
 const message = useMessage()
 const dialog = useDialog()
 
-const formRef = ref<FormInst | null>(null)
+// State
 const loading = ref(false)
+const apiKeys = ref<ApiKeyListItem[]>([])
+const searchKeyword = ref('')
+const filterStatus = ref<'active' | 'revoked' | 'expired' | 'all'>('active')
 const showCreateModal = ref(false)
+const showDetailModal = ref(false)
 const showKeyModal = ref(false)
-const submitting = ref(false)
-const apiKeys = ref<ApiKey[]>([])
 const newApiKey = ref('')
+const selectedApiKey = ref<ApiKeyListItem | null>(null)
 
-const formData = reactive({
-  name: '',
-  permissions: [] as string[],
-  expiresAt: null as number | null,
-  ipWhitelist: [] as string[],
+// Pagination
+const pagination = reactive<PaginationProps>({
+  page: 1,
+  pageSize: 20,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [10, 20, 50],
+  prefix: ({ itemCount }) => `${t('common.total')} ${itemCount} ${t('common.items')}`,
 })
 
-const formRules: FormRules = {
-  name: [{ required: true, message: () => t('settings.keyNameRequired'), trigger: 'blur' }],
-  permissions: [
-    {
-      type: 'array',
-      required: true,
-      message: () => t('settings.permissionsRequired'),
-      trigger: 'change',
-    },
-  ],
-}
+// Status filter options
+const statusOptions = computed(() => [
+  { label: t('settings.statusActive'), value: 'active' },
+  { label: t('settings.statusRevoked'), value: 'revoked' },
+  { label: t('settings.statusExpired'), value: 'expired' },
+  { label: t('settings.statusAll'), value: 'all' },
+])
 
-const columns: DataTableColumns<ApiKey> = [
+// Table columns
+const columns: DataTableColumns<ApiKeyListItem> = [
   {
-    title: t('settings.keyName'),
+    title: () => t('settings.keyName'),
     key: 'name',
     width: 150,
+    ellipsis: { tooltip: true },
   },
   {
-    title: t('settings.keyPrefix'),
-    key: 'prefix',
+    title: () => t('settings.keyPrefix'),
+    key: 'keyPrefix',
     width: 120,
-    render: (row) => h('code', {}, row.prefix + '...'),
+    render: (row) => h('code', { class: 'key-prefix' }, row.keyPrefix + '...'),
   },
   {
-    title: t('settings.permissions'),
-    key: 'permissions',
+    title: () => t('settings.scopes'),
+    key: 'scopes',
     width: 200,
     render: (row) =>
       h(
-        NSpace,
-        { size: 'small' },
+        NTooltip,
+        {},
         {
+          trigger: () =>
+            h(
+              'span',
+              { class: 'scopes-text' },
+              formatScopes(row.scopes)
+            ),
           default: () =>
-            row.permissions.map((p) =>
-              h(NTag, { size: 'tiny', type: 'info' }, () => p)
+            h(
+              NSpace,
+              { vertical: true, size: 'small' },
+              {
+                default: () =>
+                  row.scopes.map((s) =>
+                    h(NTag, { size: 'tiny', type: 'info' }, () => s)
+                  ),
+              }
             ),
         }
       ),
   },
   {
-    title: t('settings.status'),
+    title: () => t('settings.status'),
     key: 'status',
     width: 100,
-    render: (row) =>
-      h(
-        NTag,
-        { size: 'small', type: row.status === 'active' ? 'success' : 'default' },
-        () => (row.status === 'active' ? t('common.active') : t('settings.revoked'))
-      ),
+    render: (row) => {
+      const status = getApiKeyStatus(row)
+      const config = statusConfig[status]
+      return h(NTag, { size: 'small', type: config.type }, () => config.label)
+    },
   },
   {
-    title: t('settings.lastUsed'),
+    title: () => t('settings.usageCount'),
+    key: 'usageCount',
+    width: 100,
+    render: (row) => row.usageCount.toLocaleString(),
+  },
+  {
+    title: () => t('settings.lastUsed'),
     key: 'lastUsedAt',
     width: 160,
-    render: (row) => (row.lastUsedAt ? new Date(row.lastUsedAt).toLocaleString() : '-'),
+    render: (row) =>
+      row.lastUsedAt ? new Date(row.lastUsedAt).toLocaleString() : '-',
   },
   {
-    title: t('settings.expiresAt'),
+    title: () => t('settings.expiresAt'),
     key: 'expiresAt',
     width: 160,
     render: (row) => {
@@ -233,26 +243,35 @@ const columns: DataTableColumns<ApiKey> = [
     },
   },
   {
-    title: t('settings.createdAt'),
+    title: () => t('settings.createdAt'),
     key: 'createdAt',
     width: 160,
     render: (row) => new Date(row.createdAt).toLocaleString(),
   },
   {
-    title: t('common.actions'),
+    title: () => t('common.actions'),
     key: 'actions',
     width: 100,
+    fixed: 'right',
     render: (row) => {
-      if (row.status !== 'active') return null
-
-      const options = [{ label: t('settings.revoke'), key: 'revoke' }]
+      const status = getApiKeyStatus(row)
+      const options: Array<{ label: string; key: string }> = [
+        { label: t('common.view'), key: 'view' },
+      ]
+      if (status === 'active') {
+        options.push({ label: t('settings.revoke'), key: 'revoke' })
+      }
+      // 已吊销或已过期的 API Key 可以删除
+      if (status === 'revoked' || status === 'expired') {
+        options.push({ label: t('common.delete'), key: 'delete' })
+      }
 
       return h(
         NDropdown,
         {
           trigger: 'click',
           options,
-          onSelect: () => handleRevoke(row),
+          onSelect: (key: string) => handleAction(key, row),
         },
         {
           default: () =>
@@ -267,64 +286,70 @@ const columns: DataTableColumns<ApiKey> = [
   },
 ]
 
+// Load API keys
 const loadApiKeys = async () => {
   loading.value = true
   try {
-    const response = await settingsApi.getApiKeys()
-    // 后端返回 { apiKeys: [...], total: number } 格式
-    const data = response as any
-    const keyList = data.apiKeys || data.items || (Array.isArray(data) ? data : [])
-    // 映射字段名差异
-    apiKeys.value = keyList.map((key: any) => ({
-      ...key,
-      // 兼容后端字段名
-      prefix: key.prefix || key.keyPrefix,
-      status: key.status || (key.isActive ? 'active' : 'revoked'),
-    }))
-  } catch (error) {
+    const response = await apiKeysApi.getList({
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      search: searchKeyword.value || undefined,
+      status: filterStatus.value,
+    })
+    apiKeys.value = response.items
+    pagination.itemCount = response.total
+  } catch (error: any) {
     console.error('Failed to load API keys:', error)
+    message.error(error.message || t('common.error'))
   } finally {
     loading.value = false
   }
 }
 
+// Event handlers
+const handleSearch = () => {
+  pagination.page = 1
+  loadApiKeys()
+}
+
+const handleFilter = () => {
+  pagination.page = 1
+  loadApiKeys()
+}
+
+const handlePageChange = (page: number) => {
+  pagination.page = page
+  loadApiKeys()
+}
+
+const handlePageSizeChange = (pageSize: number) => {
+  pagination.pageSize = pageSize
+  pagination.page = 1
+  loadApiKeys()
+}
+
 const handleCreate = () => {
-  Object.assign(formData, {
-    name: '',
-    permissions: [],
-    expiresAt: null,
-    ipWhitelist: [],
-  })
   showCreateModal.value = true
 }
 
-const handleSubmit = async () => {
-  try {
-    await formRef.value?.validate()
-  } catch {
-    return
-  }
+const handleCreateSuccess = (apiKey: string) => {
+  newApiKey.value = apiKey
+  showKeyModal.value = true
+  loadApiKeys()
+}
 
-  submitting.value = true
-  try {
-    const result = await settingsApi.createApiKey({
-      name: formData.name,
-      permissions: formData.permissions,
-      expiresAt: formData.expiresAt ? new Date(formData.expiresAt).toISOString() : undefined,
-      ipWhitelist: formData.ipWhitelist.length > 0 ? formData.ipWhitelist : undefined,
-    })
-    newApiKey.value = result.key
-    showCreateModal.value = false
-    showKeyModal.value = true
-    loadApiKeys()
-  } catch (error: any) {
-    message.error(error.message || t('common.error'))
-  } finally {
-    submitting.value = false
+const handleAction = (action: string, row: ApiKeyListItem) => {
+  if (action === 'view') {
+    selectedApiKey.value = row
+    showDetailModal.value = true
+  } else if (action === 'revoke') {
+    confirmRevoke(row)
+  } else if (action === 'delete') {
+    confirmDelete(row)
   }
 }
 
-const handleRevoke = (apiKey: ApiKey) => {
+const confirmRevoke = (apiKey: ApiKeyListItem) => {
   dialog.warning({
     title: t('settings.revoke'),
     content: t('settings.revokeConfirm', { name: apiKey.name }),
@@ -332,7 +357,7 @@ const handleRevoke = (apiKey: ApiKey) => {
     negativeText: t('common.cancel'),
     onPositiveClick: async () => {
       try {
-        await settingsApi.revokeApiKey(apiKey.id)
+        await apiKeysApi.revoke(apiKey.id)
         message.success(t('settings.revokeSuccess'))
         loadApiKeys()
       } catch (error: any) {
@@ -340,6 +365,33 @@ const handleRevoke = (apiKey: ApiKey) => {
       }
     },
   })
+}
+
+const confirmDelete = (apiKey: ApiKeyListItem) => {
+  dialog.error({
+    title: t('settings.deleteApiKey'),
+    content: t('settings.deleteApiKeyConfirm', { name: apiKey.name }),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      try {
+        await apiKeysApi.delete(apiKey.id)
+        message.success(t('settings.deleteApiKeySuccess'))
+        loadApiKeys()
+      } catch (error: any) {
+        message.error(error.message || t('common.error'))
+      }
+    },
+  })
+}
+
+const handleUpdate = () => {
+  loadApiKeys()
+}
+
+const handleRevoke = () => {
+  showDetailModal.value = false
+  loadApiKeys()
 }
 
 const copyKey = async () => {
@@ -359,6 +411,26 @@ onMounted(() => {
 <style scoped>
 .info-alert {
   margin-bottom: 16px;
+}
+
+.filter-card {
+  margin-bottom: 16px;
+}
+
+.key-prefix {
+  font-family: monospace;
+  font-size: 12px;
+  padding: 2px 6px;
+  background: var(--code-color);
+  border-radius: 4px;
+}
+
+.scopes-text {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
 }
 
 .key-alert {
@@ -391,11 +463,5 @@ onMounted(() => {
   font-family: monospace;
   font-size: 13px;
   word-break: break-all;
-}
-
-.hint {
-  font-size: 12px;
-  color: var(--text-color-secondary);
-  margin-top: 4px;
 }
 </style>

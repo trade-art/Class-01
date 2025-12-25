@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/unified-connection-pool/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-18T15:50:29.705Z",
+      "trigger": "initial",
+      "approvalId": "approval_1766073029656_cai28afv8",
+      "approvalTitle": "统一连接池架构 - 任务分解文档"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-18T15:50:33.438Z",
+      "trigger": "approved",
+      "approvalId": "approval_1766073029656_cai28afv8",
+      "approvalTitle": "统一连接池架构 - 任务分解文档"
+    }
+  ]
+}

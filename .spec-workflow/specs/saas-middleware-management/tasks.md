@@ -1,0 +1,415 @@
+# Tasks Document: SaaS Middleware Management
+
+## Phase 1: 数据库迁移
+
+- [x] 1.1 创建 Middleware 和 MiddlewareAssignment Prisma 模型
+  - File: apps/platform-service/prisma/schema.prisma
+  - 添加 Middleware 模型 (中间件实例)
+  - 添加 MiddlewareAssignment 模型 (分配关系)
+  - 添加枚举类型 AssignmentMode, MiddlewareStatus
+  - 扩展 Tenant 模型添加关系
+  - Purpose: 建立数据库基础结构
+  - _Leverage: 现有 Prisma schema 模式_
+  - _Requirements: R1, R4_
+  - _Prompt: Role: Database Developer specializing in Prisma ORM | Task: Create Middleware and MiddlewareAssignment models following design.md specifications, add enums for AssignmentMode (SHARED/DEDICATED) and MiddlewareStatus (ONLINE/OFFLINE/DEGRADED/UNKNOWN), extend Tenant model with middlewareAssignments relation | Restrictions: Follow existing schema naming conventions, use UUID for IDs, maintain referential integrity | Success: Schema compiles without errors, migrations can be generated_
+
+- [x] 1.2 扩展 MtServer 模型
+  - File: apps/platform-service/prisma/schema.prisma
+  - 添加 configVersion 字段 (Int, default: 1)
+  - 添加 lastModifiedAt 字段 (DateTime)
+  - 添加 lastModifiedBy 字段 (String, optional)
+  - Purpose: 支持配置版本追踪和变更通知
+  - _Leverage: 现有 MtServer 模型_
+  - _Requirements: R3, R5_
+  - _Prompt: Role: Database Developer | Task: Extend MtServer model with configVersion, lastModifiedAt, lastModifiedBy fields for change tracking | Restrictions: Maintain backward compatibility with existing data | Success: New fields added without breaking existing functionality_
+
+- [x] 1.3 生成并应用数据库迁移
+  - Command: npx prisma migrate dev --name add_middleware_management
+  - 验证迁移脚本
+  - 应用到开发数据库
+  - Purpose: 实际创建数据库表
+  - _Requirements: R1, R3, R4_
+  - _Prompt: Role: DevOps Engineer | Task: Generate and apply Prisma migration for middleware management tables | Restrictions: Review migration SQL before applying, ensure no data loss | Success: Migration applied successfully, tables created in database_
+
+## Phase 2: Platform Service 后端 - 核心模块
+
+- [x] 2.1 创建加密服务
+  - File: apps/platform-service/src/common/services/encryption.service.ts
+  - 实现 AES-256-GCM 加密/解密
+  - 支持密码加密存储和解密
+  - 使用环境变量管理密钥
+  - Purpose: 安全存储 MT5 管理员密码
+  - _Leverage: Node.js crypto 模块_
+  - _Requirements: R3 (Security)_
+  - _Prompt: Role: Security Developer | Task: Implement EncryptionService with AES-256-GCM for password encryption, use MT_PASSWORD_ENCRYPTION_KEY env variable | Restrictions: Never log decrypted passwords, use secure IV generation | Success: Passwords can be encrypted and decrypted correctly, keys managed securely_
+
+- [x] 2.2 创建 MiddlewareModule 基础结构
+  - File: apps/platform-service/src/modules/middleware/middleware.module.ts
+  - File: apps/platform-service/src/modules/middleware/middleware.controller.ts
+  - File: apps/platform-service/src/modules/middleware/middleware.service.ts
+  - File: apps/platform-service/src/modules/middleware/dto/middleware.dto.ts
+  - 创建模块、控制器、服务基础框架
+  - 定义 DTO (CreateMiddlewareDto, UpdateMiddlewareDto, MiddlewareResponseDto)
+  - Purpose: 建立中间件管理模块结构
+  - _Leverage: 现有 NestJS 模块模式 (如 tenants, instances)_
+  - _Requirements: R1_
+  - _Prompt: Role: NestJS Developer | Task: Create MiddlewareModule with controller, service, and DTOs following existing module patterns from tenants or instances modules | Restrictions: Follow NestJS best practices, use proper decorators | Success: Module compiles and can be imported into AppModule_
+
+- [x] 2.3 实现中间件 CRUD API
+  - File: apps/platform-service/src/modules/middleware/middleware.service.ts
+  - 实现 create(): 创建中间件，生成 API Key
+  - 实现 findAll(): 列表查询 (含分页、过滤)
+  - 实现 findOne(): 详情查询
+  - 实现 update(): 更新中间件信息
+  - 实现 delete(): 删除中间件 (检查分配依赖)
+  - Purpose: 完整的中间件实例管理功能
+  - _Leverage: PrismaService, EncryptionService_
+  - _Requirements: R1.1, R1.2, R1.3, R1.4, R1.5, R1.6_
+  - _Prompt: Role: Backend Developer | Task: Implement middleware CRUD operations - create (with API key generation using crypto.randomBytes), findAll (with pagination), findOne, update, delete (check assignments before delete) | Restrictions: Generate unique API key on create, prevent deletion if tenants assigned | Success: All CRUD operations work correctly, API key generated on create_
+
+- [x] 2.4 实现中间件健康检查服务
+  - File: apps/platform-service/src/modules/middleware/middleware-health.service.ts
+  - 实现 checkHealth(): 主动检查中间件健康状态
+  - 实现 updateStatus(): 更新数据库中的状态
+  - 实现 getHealthDetails(): 获取详细健康信息
+  - 添加 HTTP 客户端调用中间件健康端点
+  - Purpose: 监控中间件运行状态
+  - _Leverage: @nestjs/axios, HttpService_
+  - _Requirements: R2.1, R2.2, R2.3_
+  - _Prompt: Role: Backend Developer | Task: Create MiddlewareHealthService to check middleware health via HTTP GET to middleware /health endpoint, update status in DB, handle timeouts (5s) | Restrictions: Cache status for 30 seconds, handle connection errors gracefully | Success: Health check returns status, handles offline middleware correctly_
+
+- [x] 2.5 添加健康检查 API 端点
+  - File: apps/platform-service/src/modules/middleware/middleware.controller.ts
+  - 添加 GET /middleware/:id/health 端点
+  - 添加 POST /middleware/:id/test 端点 (测试连接)
+  - Purpose: 暴露健康监控 API
+  - _Leverage: MiddlewareHealthService_
+  - _Requirements: R2.1_
+  - _Prompt: Role: NestJS Developer | Task: Add health check endpoints to middleware controller - GET /:id/health (get status), POST /:id/test (test connection) | Restrictions: Require platform admin authentication | Success: Endpoints return correct health information_
+
+## Phase 3: Platform Service 后端 - MT 服务器配置
+
+- [x] 3.1 创建 MtServerConfigModule
+  - File: apps/platform-service/src/modules/mt-server-config/mt-server-config.module.ts
+  - File: apps/platform-service/src/modules/mt-server-config/mt-server-config.controller.ts
+  - File: apps/platform-service/src/modules/mt-server-config/mt-server-config.service.ts
+  - File: apps/platform-service/src/modules/mt-server-config/dto/mt-server-config.dto.ts
+  - 创建模块、控制器、服务基础框架
+  - Purpose: 管理租户的 MT5 服务器配置
+  - _Leverage: 现有 NestJS 模块模式_
+  - _Requirements: R3_
+  - _Prompt: Role: NestJS Developer | Task: Create MtServerConfigModule for managing tenant MT5 server configurations at platform level | Restrictions: Nested under /tenants/:tenantId/mt-servers | Success: Module structure created_
+
+- [x] 3.2 实现 MT 服务器配置 CRUD
+  - File: apps/platform-service/src/modules/mt-server-config/mt-server-config.service.ts
+  - 实现 create(): 添加 MT 服务器 (密码加密)
+  - 实现 findAllByTenant(): 获取租户的所有服务器
+  - 实现 update(): 更新服务器配置 (增加 configVersion)
+  - 实现 delete(): 删除服务器配置
+  - Purpose: 完整的 MT 服务器配置管理
+  - _Leverage: PrismaService, EncryptionService_
+  - _Requirements: R3.1, R3.2, R3.3_
+  - _Prompt: Role: Backend Developer | Task: Implement MT server config CRUD - create (encrypt password), findAllByTenant (mask password), update (increment configVersion, encrypt new password), delete | Restrictions: Always encrypt password before storing, increment configVersion on update | Success: All operations work, passwords encrypted in DB_
+
+## Phase 4: Platform Service 后端 - 分配管理
+
+- [x] 4.1 创建 MiddlewareAssignmentModule
+  - File: apps/platform-service/src/modules/middleware-assignment/middleware-assignment.module.ts
+  - File: apps/platform-service/src/modules/middleware-assignment/middleware-assignment.controller.ts
+  - File: apps/platform-service/src/modules/middleware-assignment/middleware-assignment.service.ts
+  - File: apps/platform-service/src/modules/middleware-assignment/dto/assignment.dto.ts
+  - Purpose: 管理中间件与租户的分配关系
+  - _Leverage: 现有 NestJS 模块模式_
+  - _Requirements: R4_
+  - _Prompt: Role: NestJS Developer | Task: Create MiddlewareAssignmentModule for managing middleware-tenant assignments | Success: Module structure created_
+
+- [x] 4.2 实现分配逻辑
+  - File: apps/platform-service/src/modules/middleware-assignment/middleware-assignment.service.ts
+  - 实现 assign(): 分配租户到中间件
+    - 检查中间件分配模式 (SHARED/DEDICATED)
+    - 检查容量限制 (maxTenants)
+    - 检查租户是否有 MT 配置
+  - 实现 unassign(): 取消分配
+  - 实现 getAssignmentsByMiddleware(): 获取中间件的所有租户
+  - 实现 getMiddlewareByTenant(): 获取租户的中间件
+  - Purpose: 灵活的中间件分配策略
+  - _Leverage: PrismaService_
+  - _Requirements: R4.1, R4.2, R4.3, R4.4, R4.5, R4.6_
+  - _Prompt: Role: Backend Developer | Task: Implement assignment logic - assign (check SHARED mode capacity, DEDICATED mode exclusivity, tenant has MT config), unassign, query methods | Restrictions: Prevent assigning tenant without MT config, enforce capacity limits | Success: Assignment logic correctly enforces business rules_
+
+## Phase 5: Platform Service 后端 - 服务间 API
+
+- [x] 5.1 创建 API Key 认证守卫
+  - File: apps/platform-service/src/common/guards/api-key.guard.ts
+  - 实现 ApiKeyGuard 验证 X-Middleware-API-Key header
+  - 验证 API Key 哈希匹配
+  - 返回中间件 ID 到请求上下文
+  - Purpose: 服务间认证机制
+  - _Leverage: NestJS Guard 模式_
+  - _Requirements: R5.1, R5.4_
+  - _Prompt: Role: Security Developer | Task: Create ApiKeyGuard that validates X-Middleware-API-Key header against hashed key in DB, attach middlewareId to request | Restrictions: Use timing-safe comparison, return 401 on invalid key | Success: Valid API key passes, invalid returns 401_
+
+- [x] 5.2 创建 MiddlewareConfigModule (内部 API)
+  - File: apps/platform-service/src/modules/middleware-config/middleware-config.module.ts
+  - File: apps/platform-service/src/modules/middleware-config/middleware-config.controller.ts
+  - File: apps/platform-service/src/modules/middleware-config/middleware-config.service.ts
+  - Purpose: 供中间件拉取配置的 API
+  - _Requirements: R5_
+  - _Prompt: Role: NestJS Developer | Task: Create MiddlewareConfigModule with internal API endpoints for middleware to fetch config | Success: Module structure created with ApiKeyGuard_
+
+- [x] 5.3 实现配置拉取 API
+  - File: apps/platform-service/src/modules/middleware-config/middleware-config.service.ts
+  - 实现 getConfig(): 获取分配给该中间件的所有租户配置
+    - 返回租户 ID、租户代码
+    - 返回 MT 服务器配置 (解密密码)
+    - 返回配置版本
+  - Purpose: 中间件动态获取配置
+  - _Leverage: PrismaService, EncryptionService_
+  - _Requirements: R5.2, R5.3, R5.6_
+  - _Prompt: Role: Backend Developer | Task: Implement getConfig method that returns tenant configs assigned to requesting middleware, decrypt passwords for middleware use | Restrictions: Only return configs for assigned tenants, decrypt passwords only for this internal API | Success: Config returned with decrypted passwords for assigned tenants_
+
+- [x] 5.4 实现心跳上报 API
+  - File: apps/platform-service/src/modules/middleware-config/middleware-config.controller.ts
+  - 添加 POST /internal/middleware/heartbeat 端点
+  - 接收健康数据 (serverIp, activeSessions, memoryUsage, cpuUsage, cacheStatus)
+  - 更新 Middleware 记录
+  - Purpose: 中间件上报运行状态
+  - _Leverage: PrismaService_
+  - _Requirements: R2.1, R2.3_
+  - _Prompt: Role: Backend Developer | Task: Implement heartbeat endpoint that receives health data from middleware and updates Middleware record including lastHeartbeat, serverIp, activeSessions, etc. | Restrictions: Validate API key first | Success: Health data persisted, lastHeartbeat updated_
+
+## Phase 6: Platform Console 前端 - 中间件管理
+
+- [x] 6.1 创建中间件管理页面路由和布局
+  - File: apps/platform-console/src/router/index.ts
+  - File: apps/platform-console/src/views/middleware/index.vue
+  - 添加 /middleware 路由
+  - 创建列表页面框架
+  - Purpose: 中间件管理入口
+  - _Leverage: 现有 Vue Router 配置_
+  - _Requirements: R1.2_
+  - _Prompt: Role: Vue.js Developer | Task: Add /middleware route and create index.vue page with table layout for middleware list | Success: Route accessible, page renders_
+
+- [x] 6.2 创建中间件 API 客户端
+  - File: apps/platform-console/src/api/middleware.ts
+  - 实现 getMiddlewares(): 获取列表
+  - 实现 getMiddleware(id): 获取详情
+  - 实现 createMiddleware(data): 创建
+  - 实现 updateMiddleware(id, data): 更新
+  - 实现 deleteMiddleware(id): 删除
+  - 实现 getMiddlewareHealth(id): 获取健康状态
+  - 实现 testMiddlewareConnection(id): 测试连接
+  - Purpose: 封装 API 调用
+  - _Leverage: 现有 axios 实例_
+  - _Requirements: R1, R2_
+  - _Prompt: Role: Frontend Developer | Task: Create middleware API client with all CRUD and health check methods | Success: All API methods implemented_
+
+- [x] 6.3 创建中间件 Pinia Store
+  - File: apps/platform-console/src/stores/middleware.ts
+  - 状态: middlewares, currentMiddleware, loading, error
+  - Actions: fetchMiddlewares, fetchMiddleware, createMiddleware, updateMiddleware, deleteMiddleware
+  - Purpose: 状态管理
+  - _Leverage: 现有 Pinia store 模式_
+  - _Requirements: R1_
+  - _Prompt: Role: Vue.js Developer | Task: Create Pinia store for middleware state management following existing store patterns | Success: Store manages middleware state correctly_
+
+- [x] 6.4 实现中间件列表页面
+  - File: apps/platform-console/src/views/middleware/index.vue
+  - 显示中间件列表表格 (名称、URL、状态、分配模式、租户数)
+  - 状态指示器 (绿色/红色/黄色)
+  - 添加/编辑/删除操作按钮
+  - Purpose: 中间件列表管理界面
+  - _Leverage: Ant Design Vue 组件_
+  - _Requirements: R1.2_
+  - _Prompt: Role: Vue.js Developer | Task: Implement middleware list page with table showing name, URL, status (with color indicator), assignmentMode, tenant count, and action buttons | Success: List displays correctly with proper status indicators_
+
+- [x] 6.5 创建中间件表单弹窗
+  - File: apps/platform-console/src/views/middleware/components/MiddlewareFormModal.vue
+  - 表单字段: name, description, url, assignmentMode, maxTenants
+  - 支持创建和编辑模式
+  - 表单验证
+  - Purpose: 添加/编辑中间件
+  - _Leverage: Ant Design Vue Form 组件_
+  - _Requirements: R1.1, R1.3_
+  - _Prompt: Role: Vue.js Developer | Task: Create modal form for creating/editing middleware with validation | Success: Form works for both create and edit, validates input_
+
+- [x] 6.6 创建中间件详情页面
+  - File: apps/platform-console/src/views/middleware/detail.vue
+  - 显示中间件基本信息
+  - 显示健康状态详情 (IP、会话数、内存、CPU、缓存)
+  - 显示 API Key (可复制、可重新生成)
+  - 显示已分配租户列表
+  - 测试连接按钮
+  - Purpose: 中间件详情和监控
+  - _Leverage: Ant Design Vue 组件_
+  - _Requirements: R2.1, R4.6_
+  - _Prompt: Role: Vue.js Developer | Task: Create detail page showing middleware info, health metrics (with refresh), API key (with copy button), assigned tenants list, and test connection button | Success: Detail page shows all info, health refreshes correctly_
+
+- [x] 6.7 添加国际化支持
+  - File: apps/platform-console/src/locales/en-US.ts
+  - File: apps/platform-console/src/locales/zh-CN.ts
+  - 添加中间件管理相关翻译
+  - Purpose: 多语言支持
+  - _Leverage: 现有 i18n 配置_
+  - _Requirements: (Usability)_
+  - _Prompt: Role: Frontend Developer | Task: Add i18n translations for middleware management pages in en-US and zh-CN | Success: All text properly translated_
+
+## Phase 7: Platform Console 前端 - MT 服务器配置
+
+- [x] 7.1 在租户详情页添加 MT 服务器配置 Tab
+  - File: apps/platform-console/src/views/tenants/detail.vue (修改)
+  - 添加 "MT 服务器" Tab
+  - 显示该租户的 MT 服务器列表
+  - Purpose: 在租户管理中配置 MT 服务器
+  - _Leverage: 现有租户详情页结构_
+  - _Requirements: R3.2_
+  - _Prompt: Role: Vue.js Developer | Task: Add "MT Servers" tab to tenant detail page showing list of MT servers for that tenant | Success: Tab displays server list_
+
+- [x] 7.2 创建 MT 服务器配置 API 客户端
+  - File: apps/platform-console/src/api/mt-server-config.ts
+  - 实现 getMtServers(tenantId): 获取列表
+  - 实现 createMtServer(tenantId, data): 创建
+  - 实现 updateMtServer(tenantId, id, data): 更新
+  - 实现 deleteMtServer(tenantId, id): 删除
+  - Purpose: 封装 MT 服务器配置 API
+  - _Requirements: R3_
+  - _Prompt: Role: Frontend Developer | Task: Create MT server config API client | Success: All methods implemented_
+
+- [x] 7.3 创建 MT 服务器表单弹窗
+  - File: apps/platform-console/src/views/tenants/components/MtServerFormModal.vue
+  - 表单字段: serverId, displayName, platformType, serverAddress, managerLogin, managerPassword
+  - 密码字段加密传输
+  - 表单验证
+  - Purpose: 添加/编辑 MT 服务器配置
+  - _Leverage: Ant Design Vue Form 组件_
+  - _Requirements: R3.1, R3.3_
+  - _Prompt: Role: Vue.js Developer | Task: Create modal form for MT server config with all required fields, password field type="password" | Success: Form works correctly_
+
+## Phase 8: Platform Console 前端 - 分配管理
+
+- [x] 8.1 创建分配 API 客户端
+  - File: apps/platform-console/src/api/middleware-assignment.ts
+  - 实现 assignTenant(middlewareId, tenantId): 分配
+  - 实现 unassignTenant(middlewareId, tenantId): 取消分配
+  - 实现 getAssignedTenants(middlewareId): 获取已分配租户
+  - 实现 getTenantMiddleware(tenantId): 获取租户的中间件
+  - Purpose: 封装分配 API
+  - _Requirements: R4_
+  - _Prompt: Role: Frontend Developer | Task: Create middleware assignment API client | Success: All methods implemented_
+
+- [x] 8.2 在中间件详情页添加分配管理
+  - File: apps/platform-console/src/views/middleware/detail.vue (扩展)
+  - 显示已分配租户列表
+  - 添加"分配租户"按钮，弹出租户选择器
+  - 支持取消分配
+  - Purpose: 可视化分配管理
+  - _Leverage: Ant Design Vue Select/Modal 组件_
+  - _Requirements: R4.1, R4.6_
+  - _Prompt: Role: Vue.js Developer | Task: Add tenant assignment management to middleware detail page - show assigned tenants, add assign button with tenant selector, unassign button | Success: Assignment management works correctly_
+
+- [x] 8.3 在租户详情页显示中间件信息
+  - File: apps/platform-console/src/views/tenants/detail.vue (扩展)
+  - 显示当前分配的中间件
+  - 如果未分配，显示警告提示
+  - Purpose: 在租户视角查看中间件分配
+  - _Leverage: 现有租户详情页_
+  - _Requirements: R4.5_
+  - _Prompt: Role: Vue.js Developer | Task: Show assigned middleware info in tenant detail page, display warning if no middleware assigned | Success: Middleware info displayed, warning shown when unassigned_
+
+## Phase 9: Tenant Console 调整
+
+- [x] 9.1 修改 MT 服务器页面为只读模式
+  - File: apps/tenant-console/src/views/mt-servers/index.vue (修改)
+  - 移除添加/编辑/删除按钮
+  - 显示服务器信息 (只读)
+  - 密码显示为 ******
+  - Purpose: 租户只能查看，不能修改
+  - _Leverage: 现有 MT 服务器页面_
+  - _Requirements: R6.1, R6.2_
+  - _Prompt: Role: Vue.js Developer | Task: Modify MT servers page to read-only mode - remove add/edit/delete buttons, display info as read-only, mask password | Success: Page is read-only, no edit actions available_
+
+- [x] 9.2 添加未配置提示
+  - File: apps/tenant-console/src/views/mt-servers/index.vue (修改)
+  - 当租户没有 MT 配置时显示提示信息
+  - 提示："请联系 SaaS 管理员配置 MT5 服务器"
+  - Purpose: 引导用户联系管理员
+  - _Requirements: R6.3_
+  - _Prompt: Role: Vue.js Developer | Task: Add empty state message when no MT servers configured, showing "Please contact SaaS administrator to configure MT5 server" | Success: Message displays when no servers_
+
+- [x] 9.3 调整 API 权限
+  - File: apps/tenant-api/src/mt-server/mt-server.controller.ts (修改)
+  - 移除 POST/PUT/DELETE 端点或返回 403
+  - 保留 GET 端点 (只读)
+  - Purpose: 后端强制只读
+  - _Leverage: 现有控制器_
+  - _Requirements: R6.4_
+  - _Prompt: Role: NestJS Developer | Task: Modify mt-server controller to return 403 Forbidden for POST/PUT/DELETE requests, keep GET for read-only access | Success: Write operations return 403_
+
+## Phase 10: 测试
+
+- [x] 10.1 编写 Middleware Service 单元测试
+  - File: apps/platform-service/src/modules/middleware/middleware.service.spec.ts
+  - 测试 CRUD 操作
+  - 测试 API Key 生成
+  - 测试删除前依赖检查
+  - Purpose: 确保服务逻辑正确
+  - _Leverage: Jest, @nestjs/testing_
+  - _Requirements: R1_
+  - _Completed: 2025-12-09_
+
+- [x] 10.2 编写 Assignment Service 单元测试
+  - File: apps/platform-service/src/modules/middleware-assignment/middleware-assignment.service.spec.ts
+  - 测试分配逻辑
+  - 测试容量限制
+  - 测试独占模式
+  - Purpose: 确保分配逻辑正确
+  - _Leverage: Jest, @nestjs/testing_
+  - _Requirements: R4_
+  - _Completed: 2025-12-09_
+
+- [x] 10.3 编写 API 集成测试
+  - File: apps/platform-service/test/middleware.e2e-spec.ts
+  - 测试完整的 API 流程
+  - 测试认证
+  - 测试错误处理
+  - Purpose: 确保 API 端点工作正常
+  - _Leverage: supertest, @nestjs/testing_
+  - _Requirements: R1, R2, R3, R4, R5_
+  - _Completed: 2025-12-09_
+
+- [x] 10.4 编写服务间 API 测试
+  - File: apps/platform-service/test/middleware-config.e2e-spec.ts
+  - 测试 API Key 认证
+  - 测试配置拉取
+  - 测试心跳上报
+  - Purpose: 确保服务间通信正常
+  - _Leverage: supertest_
+  - _Requirements: R5_
+  - _Completed: 2025-12-09_
+
+## Phase 11: 文档和清理
+
+- [x] 11.1 更新 API 文档
+  - File: docs/api/middleware-management.md
+  - 记录所有新增 API 端点
+  - 包含请求/响应示例
+  - Purpose: API 参考文档
+  - _Requirements: (Documentation)_
+  - _Completed: 2025-12-09_
+
+- [x] 11.2 更新架构文档
+  - File: docs/SAAS_PLATFORM_ARCHITECTURE.md (更新)
+  - 添加中间件管理架构说明
+  - 更新系统架构图
+  - Purpose: 保持文档同步
+  - _Requirements: (Documentation)_
+  - _Completed: 2025-12-09_
+
+- [x] 11.3 代码审查和清理
+  - 检查代码风格一致性
+  - 移除调试代码
+  - 确保所有 TODO 完成
+  - 修复类型错误 (AssignmentMode -> MiddlewareAssignmentMode)
+  - Purpose: 代码质量保证
+  - _Requirements: (Code Quality)_
+  - _Completed: 2025-12-09_

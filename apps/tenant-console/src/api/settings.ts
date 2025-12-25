@@ -103,4 +103,33 @@ export const settingsApi = {
   getMt5ServerInfo(): Promise<any> {
     return get('/tenant/settings/mt5-server')
   },
+
+  // Subscription & Quota (订阅与配额)
+  getSubscriptionStatus(): Promise<SubscriptionStatus> {
+    return get<SubscriptionStatus>('/tenant/settings/subscription')
+  },
+
+  canAddAdmin(): Promise<{ canAdd: boolean; message?: string }> {
+    return get<{ canAdd: boolean; message?: string }>('/tenant/settings/admins/can-add')
+  },
+}
+
+// 订阅状态类型定义
+export interface ResourceUsage {
+  used: number
+  max: number
+  percentage: number
+}
+
+export interface SubscriptionStatus {
+  plan: 'TRIAL' | 'BASIC' | 'PROFESSIONAL' | 'ENTERPRISE'
+  status: string
+  expiresAt?: string
+  isExpiringSoon: boolean
+  daysRemaining: number
+  supportedPlatforms: string[]
+  admins: ResourceUsage
+  mtServers: ResourceUsage
+  managerAccounts: ResourceUsage
+  instances: ResourceUsage
 }

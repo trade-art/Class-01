@@ -1,0 +1,16 @@
+{
+  "id": "snapshot_1764946492062_5qbmyozzg",
+  "approvalId": "approval_1764946462996_79rl7onff",
+  "approvalTitle": "E2E Business Flows Requirements",
+  "version": 2,
+  "timestamp": "2025-12-05T14:54:52.062Z",
+  "trigger": "approved",
+  "status": "pending",
+  "content": "# Requirements Document: E2E Business Flows\r\n\r\n## Introduction\r\n\r\n本功能实现SaaS平台的端到端业务流程验证，确保从用户注册到交易数据查看的完整业务流程正常工作。目标是验证所有已开发模块能够协同工作，形成完整的产品体验。\r\n\r\n### 背景\r\n\r\n当前状态：\r\n- 各模块独立开发完成\r\n- 单元测试和集成测试通过\r\n- 缺少完整业务流程验证\r\n\r\n目标状态：\r\n- 关键业务流程自动化测试\r\n- 用户旅程端到端验证\r\n- 多租户场景完整测试\r\n\r\n## Requirements\r\n\r\n### Requirement 1: 租户注册和初始化流程\r\n\r\n**User Story:** 作为新租户，我想要完成注册和初始化，以便开始使用平台。\r\n\r\n#### Acceptance Criteria\r\n\r\n1. WHEN 新租户注册 THEN 系统 SHALL 创建租户、管理员账户和默认配置\r\n2. WHEN 租户首次登录 THEN 系统 SHALL 引导完成MT服务器配置\r\n3. WHEN MT服务器配置完成 THEN 系统 SHALL 验证连接并显示成功状态\r\n4. IF 注册信息不完整 THEN 系统 SHALL 显示明确的错误提示\r\n5. WHEN 流程完成 THEN 租户 SHALL 能够访问所有已授权功能\r\n\r\n### Requirement 2: MT服务器配置和连接流程\r\n\r\n**User Story:** 作为租户管理员，我想要配置MT服务器并验证连接，以便管理交易数据。\r\n\r\n#### Acceptance Criteria\r\n\r\n1. WHEN 添加MT服务器 THEN 系统 SHALL 加密存储凭证并创建配置\r\n2. WHEN 测试连接 THEN 系统 SHALL 显示连接状态、服务器版本和延迟\r\n3. WHEN 设置默认服务器 THEN 系统 SHALL 更新默认服务器标记\r\n4. IF 连接失败 THEN 系统 SHALL 显示详细错误原因和解决建议\r\n5. WHEN 多服务器配置 THEN 系统 SHALL 支持在服务器间切换\r\n\r\n### Requirement 3: 交易用户管理流程\r\n\r\n**User Story:** 作为租户管理员，我想要查看和管理MT服务器上的交易用户，以便进行用户运营。\r\n\r\n#### Acceptance Criteria\r\n\r\n1. WHEN 访问用户列表 THEN 系统 SHALL 显示分页的用户列表（含余额、净值等）\r\n2. WHEN 搜索用户 THEN 系统 SHALL 支持按登录名、姓名、分组过滤\r\n3. WHEN 查看用户详情 THEN 系统 SHALL 显示账户信息、持仓、订单和成交记录\r\n4. IF 用户数据量大 THEN 系统 SHALL 使用分页和懒加载优化性能\r\n5. WHEN 数据刷新 THEN 系统 SHALL 显示最后更新时间\r\n\r\n### Requirement 4: 持仓和订单查看流程\r\n\r\n**User Story:** 作为租户管理员，我想要查看实时持仓和订单信息，以便监控交易活动。\r\n\r\n#### Acceptance Criteria\r\n\r\n1. WHEN 查看持仓列表 THEN 系统 SHALL 显示所有未平仓持仓及实时盈亏\r\n2. WHEN 查看订单列表 THEN 系统 SHALL 显示挂单状态和历史订单\r\n3. WHEN 筛选数据 THEN 系统 SHALL 支持按品种、用户、时间范围过滤\r\n4. IF 数据更新 THEN 系统 SHALL 自动刷新显示（可配置刷新间隔）\r\n5. WHEN 导出数据 THEN 系统 SHALL 支持导出CSV/Excel格式\r\n\r\n### Requirement 5: 多租户隔离验证\r\n\r\n**User Story:** 作为平台管理员，我需要确保租户数据完全隔离，以保证数据安全。\r\n\r\n#### Acceptance Criteria\r\n\r\n1. WHEN 租户A访问数据 THEN 系统 SHALL 仅返回租户A的数据\r\n2. WHEN 租户A尝试访问租户B的资源 THEN 系统 SHALL 返回403/404错误\r\n3. WHEN 跨租户API调用 THEN 系统 SHALL 拒绝请求并记录安全日志\r\n4. IF 租户被禁用 THEN 系统 SHALL 立即终止该租户的所有会话\r\n5. WHEN 审计数据访问 THEN 系统 SHALL 记录完整的访问日志\r\n\r\n## Non-Functional Requirements\r\n\r\n### Test Coverage\r\n- 核心业务流程100%覆盖\r\n- 错误场景至少80%覆盖\r\n- 边界条件测试\r\n\r\n### Performance\r\n- 页面加载时间 < 2秒\r\n- API响应时间 < 1秒\r\n- 列表渲染流畅（60fps）\r\n\r\n### Reliability\r\n- 测试可重复执行\r\n- 测试环境隔离\r\n- 失败测试自动重试（最多2次）\r\n\r\n### Maintainability\r\n- 测试代码清晰易读\r\n- 测试数据可配置\r\n- 支持选择性运行测试\r\n",
+  "fileStats": {
+    "size": 4011,
+    "lines": 102,
+    "lastModified": "2025-12-05T14:53:18.832Z"
+  },
+  "comments": []
+}

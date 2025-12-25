@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MiddlewareProxyService, DealDto } from '../middleware-proxy';
+import { CacheService, CacheTTL } from '../common';
 import {
   ReportQueryDto,
   ReportPeriod,
@@ -18,21 +19,43 @@ import {
 /**
  * 报表服务
  * 提供交易、用户、财务报表数据聚合和导出功能
+ * 使用 Redis 缓存优化响应速度
  */
 @Injectable()
 export class ReportsService {
   private readonly logger = new Logger(ReportsService.name);
 
-  constructor(private readonly middlewareProxy: MiddlewareProxyService) {}
+  constructor(
+    private readonly middlewareProxy: MiddlewareProxyService,
+    private readonly cacheService: CacheService,
+  ) {}
 
   /**
    * 获取交易报表
+   * 使用 Redis 缓存优化响应速度（缓存60秒）
    */
   async getTradingReport(
     instanceId: string,
     query: ReportQueryDto,
   ): Promise<TradingReportDto> {
     const { startDate, endDate } = this.getDateRange(query);
+
+    // 构建缓存键
+    const cacheKey = this.cacheService.buildKey(
+      'reports:trading',
+      instanceId,
+      `${startDate}_${endDate}_${query.period || 'day'}`,
+    );
+
+    // 尝试从缓存获取
+    const cached = await this.cacheService.get<TradingReportDto>(cacheKey);
+    if (cached) {
+      this.logger.debug(`Trading report cache hit for ${instanceId}`);
+      return cached;
+    }
+
+    // 缓存未命中，从 MT5 获取数据
+    this.logger.debug(`Trading report cache miss for ${instanceId}, fetching from MT5`);
 
     // 获取历史订单数据
     const deals = await this.fetchDeals(instanceId, startDate, endDate);
@@ -51,7 +74,7 @@ export class ReportsService {
     // 时段分析
     const hourlyAnalysis = this.analyzeByHour(deals);
 
-    return {
+    const result: TradingReportDto = {
       period: query.period ?? ReportPeriod.DAY,
       startDate,
       endDate,
@@ -63,10 +86,16 @@ export class ReportsService {
       symbolAnalysis,
       hourlyAnalysis,
     };
+
+    // 存入缓存
+    await this.cacheService.set(cacheKey, result, CacheTTL.REPORTS);
+
+    return result;
   }
 
   /**
    * 获取用户报表
+   * 使用 Redis 缓存优化响应速度（缓存60秒）
    */
   async getUsersReport(
     instanceId: string,
@@ -74,21 +103,50 @@ export class ReportsService {
   ): Promise<UsersReportDto> {
     const { startDate, endDate } = this.getDateRange(query);
 
-    // 获取用户数据 (通过中间件)
-    const usersResult = await this.middlewareProxy.request<{
-      users: Array<{
-        login: number;
-        name: string;
-        group: string;
-        balance: number;
-        registrationTime?: string;
-      }>;
-      total: number;
-    }>('get', '/account/users', instanceId, {
-      params: { limit: 10000 },
-    });
+    // 构建缓存键
+    const cacheKey = this.cacheService.buildKey(
+      'reports:users',
+      instanceId,
+      `${startDate}_${endDate}_${query.period || 'day'}`,
+    );
 
-    const users = usersResult.users;
+    // 尝试从缓存获取
+    const cached = await this.cacheService.get<UsersReportDto>(cacheKey);
+    if (cached) {
+      this.logger.debug(`Users report cache hit for ${instanceId}`);
+      return cached;
+    }
+
+    // 缓存未命中，从 MT5 获取数据
+    this.logger.debug(`Users report cache miss for ${instanceId}, fetching from MT5`);
+
+    // 获取用户数据 (通过中间件，使用带认证的方法)
+    let users: Array<{
+      login: number;
+      name: string;
+      group: string;
+      balance: number;
+      registrationTime?: string;
+    }> = [];
+
+    try {
+      const usersResult = await this.middlewareProxy.requestWithAuth<{
+        users: Array<{
+          login: number;
+          name: string;
+          group: string;
+          balance: number;
+          registrationTime?: string;
+        }>;
+        total: number;
+      }>('get', '/api/v1/account/users', instanceId, {
+        params: { limit: 10000 },
+      });
+      users = usersResult.users || [];
+    } catch (error) {
+      this.logger.warn('获取用户数据失败，返回空数组', error);
+      users = [];
+    }
 
     // 获取交易数据计算活跃用户
     const deals = await this.fetchDeals(instanceId, startDate, endDate);
@@ -108,7 +166,7 @@ export class ReportsService {
     // 分组统计
     const groupStats = this.calculateGroupStats(users);
 
-    return {
+    const result: UsersReportDto = {
       period: query.period ?? ReportPeriod.DAY,
       startDate,
       endDate,
@@ -120,16 +178,39 @@ export class ReportsService {
       userValueRanking,
       groupStats,
     };
+
+    // 存入缓存
+    await this.cacheService.set(cacheKey, result, CacheTTL.REPORTS);
+
+    return result;
   }
 
   /**
    * 获取财务报表
+   * 使用 Redis 缓存优化响应速度（缓存60秒）
    */
   async getFinanceReport(
     instanceId: string,
     query: ReportQueryDto,
   ): Promise<FinanceReportDto> {
     const { startDate, endDate } = this.getDateRange(query);
+
+    // 构建缓存键
+    const cacheKey = this.cacheService.buildKey(
+      'reports:finance',
+      instanceId,
+      `${startDate}_${endDate}_${query.period || 'day'}`,
+    );
+
+    // 尝试从缓存获取
+    const cached = await this.cacheService.get<FinanceReportDto>(cacheKey);
+    if (cached) {
+      this.logger.debug(`Finance report cache hit for ${instanceId}`);
+      return cached;
+    }
+
+    // 缓存未命中，从 MT5 获取数据
+    this.logger.debug(`Finance report cache miss for ${instanceId}, fetching from MT5`);
 
     // 获取交易历史数据
     const deals = await this.fetchDeals(instanceId, startDate, endDate);
@@ -150,7 +231,7 @@ export class ReportsService {
     // 月度对比
     const monthlyComparison = this.generateMonthlyComparison(deals);
 
-    return {
+    const result: FinanceReportDto = {
       period: query.period ?? ReportPeriod.DAY,
       startDate,
       endDate,
@@ -164,6 +245,11 @@ export class ReportsService {
       commissionTrend,
       monthlyComparison,
     };
+
+    // 存入缓存
+    await this.cacheService.set(cacheKey, result, CacheTTL.REPORTS);
+
+    return result;
   }
 
   /**
@@ -205,15 +291,27 @@ export class ReportsService {
 
   /**
    * 获取日期范围
+   * 始终将日期规范化为 YYYY-MM-DD 格式，确保缓存键的一致性
    */
   private getDateRange(query: ReportQueryDto): {
     startDate: string;
     endDate: string;
   } {
-    const endDate = query.endDate ?? new Date().toISOString().split('T')[0];
-    let startDate = query.startDate;
+    // 规范化结束日期为 YYYY-MM-DD 格式
+    let endDate: string;
+    if (query.endDate) {
+      // 将 ISO 格式或任意日期字符串规范化为 YYYY-MM-DD
+      endDate = new Date(query.endDate).toISOString().split('T')[0];
+    } else {
+      endDate = new Date().toISOString().split('T')[0];
+    }
 
-    if (!startDate) {
+    // 规范化开始日期
+    let startDate: string;
+    if (query.startDate) {
+      // 将 ISO 格式或任意日期字符串规范化为 YYYY-MM-DD
+      startDate = new Date(query.startDate).toISOString().split('T')[0];
+    } else {
       const end = new Date(endDate);
       const start = new Date(end);
 

@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/saas-mvp-upgrade/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-25T11:50:22.306Z",
+      "trigger": "initial",
+      "approvalId": "approval_1766663422224_5aac28cwo",
+      "approvalTitle": "Requirements Document - SaaS MVP Upgrade"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-25T11:54:54.837Z",
+      "trigger": "approved",
+      "approvalId": "approval_1766663690454_838k477no",
+      "approvalTitle": "Requirements Document v2 - 已添加测试验证环节"
+    }
+  ]
+}

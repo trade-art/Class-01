@@ -111,6 +111,38 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'menu.profile' },
       },
       {
+        path: 'settings/subscription',
+        name: 'subscription',
+        component: () => import('@/views/settings/subscription.vue'),
+        meta: { title: 'menu.subscription' },
+      },
+      {
+        path: 'settings/notifications',
+        name: 'notifications',
+        component: () => import('@/views/settings/notifications.vue'),
+        meta: { title: 'menu.notifications' },
+      },
+      {
+        path: 'settings/middleware-instances',
+        name: 'middleware-instances',
+        component: () => import('@/views/settings/middleware-instances.vue'),
+        meta: { title: 'menu.middlewareInstances', requiredRole: 'admin' },
+      },
+      // MT Server Management
+      {
+        path: 'mt-servers',
+        name: 'mt-servers',
+        component: () => import('@/views/mt-servers/index.vue'),
+        meta: { title: 'menu.mtServers', requiredRole: 'admin' },
+      },
+      // MT Manager Management
+      {
+        path: 'mt-managers',
+        name: 'mt-managers',
+        component: () => import('@/views/mt-managers/index.vue'),
+        meta: { title: 'menu.mtManagers', requiredRole: 'admin' },
+      },
+      {
         path: 'users/:id',
         name: 'user-detail',
         component: () => import('@/views/users/detail.vue'),
@@ -125,8 +157,11 @@ const routes: RouteRecordRaw[] = [
   },
 ]
 
+// Router base path - for nginx deployment use /tenant/, for local dev use /
+const routerBase = import.meta.env.VITE_ROUTER_BASE || '/'
+
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(routerBase),
   routes,
 })
 

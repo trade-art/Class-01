@@ -2,7 +2,7 @@
   <div class="page-container">
     <div class="page-header flex-between">
       <h1 class="page-title">{{ t('menu.dashboard') }}</h1>
-      <n-space>
+      <n-space align="center">
         <n-tag v-if="autoRefresh" type="success" size="small">
           {{ t('dashboard.autoRefresh') }}
         </n-tag>
@@ -15,32 +15,32 @@
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-4 gap-4 mb-6">
-      <n-card>
+    <div class="grid grid-cols-4 gap-6 mb-6">
+      <n-card class="stat-card">
         <n-statistic :label="t('dashboard.totalTenants')" :value="tenantStats?.total || 0">
           <template #prefix>
-            <n-icon class="text-primary"><i class="i-carbon-enterprise" /></n-icon>
+            <n-icon class="stat-icon text-primary" size="24"><i class="i-carbon-enterprise" /></n-icon>
           </template>
         </n-statistic>
       </n-card>
-      <n-card>
+      <n-card class="stat-card">
         <n-statistic :label="t('dashboard.activeTenants')" :value="tenantStats?.active || 0">
           <template #prefix>
-            <n-icon class="text-success"><i class="i-carbon-checkmark-filled" /></n-icon>
+            <n-icon class="stat-icon text-success" size="24"><i class="i-carbon-checkmark-filled" /></n-icon>
           </template>
         </n-statistic>
       </n-card>
-      <n-card>
+      <n-card class="stat-card">
         <n-statistic :label="t('dashboard.totalInstances')" :value="instanceStats?.total || 0">
           <template #prefix>
-            <n-icon class="text-primary"><i class="i-carbon-server-dns" /></n-icon>
+            <n-icon class="stat-icon text-primary" size="24"><i class="i-carbon-server-dns" /></n-icon>
           </template>
         </n-statistic>
       </n-card>
-      <n-card>
+      <n-card class="stat-card">
         <n-statistic :label="t('dashboard.onlineInstances')" :value="instanceStats?.online || 0">
           <template #prefix>
-            <n-icon class="text-success"><i class="i-carbon-cloud" /></n-icon>
+            <n-icon class="stat-icon text-success" size="24"><i class="i-carbon-cloud" /></n-icon>
           </template>
         </n-statistic>
       </n-card>
@@ -59,12 +59,11 @@
         </n-card>
       </n-gi>
 
-      <!-- Subscription Distribution -->
+      <!-- Subscription Distribution (按套餐分布的租户数量) -->
       <n-gi>
         <n-card :title="t('dashboard.subscriptionDistribution')">
           <PieChart
             :data="subscriptionData"
-            :loading="loadingSubscription"
             height="280px"
             donut
           />
@@ -76,70 +75,116 @@
       <!-- Tenant Status -->
       <n-gi>
         <n-card :title="t('dashboard.tenantStatus')">
-          <n-space vertical :size="16">
-            <div class="flex items-center gap-4">
-              <span class="w-16 shrink-0">{{ t('tenant.status.active') }}</span>
-              <n-progress
-                type="line"
-                :percentage="getPercent(tenantStats?.active, tenantStats?.total)"
-                status="success"
-                :show-indicator="true"
+          <div class="status-distribution">
+            <!-- 堆叠进度条 -->
+            <div class="stacked-bar">
+              <div
+                v-if="tenantStats?.active"
+                class="bar-segment bg-success"
+                :style="{ width: getPercent(tenantStats?.active, tenantStats?.total) + '%' }"
+                :title="`${t('tenant.status.active')}: ${tenantStats?.active}`"
+              />
+              <div
+                v-if="tenantStats?.pending"
+                class="bar-segment bg-warning"
+                :style="{ width: getPercent(tenantStats?.pending, tenantStats?.total) + '%' }"
+                :title="`${t('tenant.status.pending')}: ${tenantStats?.pending}`"
+              />
+              <div
+                v-if="tenantStats?.suspended"
+                class="bar-segment bg-error"
+                :style="{ width: getPercent(tenantStats?.suspended, tenantStats?.total) + '%' }"
+                :title="`${t('tenant.status.suspended')}: ${tenantStats?.suspended}`"
               />
             </div>
-            <div class="flex items-center gap-4">
-              <span class="w-16 shrink-0">{{ t('tenant.status.pending') }}</span>
-              <n-progress
-                type="line"
-                :percentage="getPercent(tenantStats?.pending, tenantStats?.total)"
-                status="warning"
-                :show-indicator="true"
-              />
+            <!-- 图例 -->
+            <div class="legend">
+              <div class="legend-item">
+                <span class="legend-dot bg-success" />
+                <span class="legend-label">{{ t('tenant.status.active') }}</span>
+                <span class="legend-value">{{ tenantStats?.active || 0 }}</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot bg-warning" />
+                <span class="legend-label">{{ t('tenant.status.pending') }}</span>
+                <span class="legend-value">{{ tenantStats?.pending || 0 }}</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot bg-error" />
+                <span class="legend-label">{{ t('tenant.status.suspended') }}</span>
+                <span class="legend-value">{{ tenantStats?.suspended || 0 }}</span>
+              </div>
             </div>
-            <div class="flex items-center gap-4">
-              <span class="w-16 shrink-0">{{ t('tenant.status.suspended') }}</span>
-              <n-progress
-                type="line"
-                :percentage="getPercent(tenantStats?.suspended, tenantStats?.total)"
-                status="error"
-                :show-indicator="true"
-              />
-            </div>
-          </n-space>
+          </div>
         </n-card>
       </n-gi>
 
       <!-- Instance Status -->
       <n-gi>
         <n-card :title="t('dashboard.instanceStatus')">
-          <n-space vertical :size="16">
-            <div class="flex items-center gap-4">
-              <span class="w-16 shrink-0">{{ t('instance.status.online') }}</span>
-              <n-progress
-                type="line"
-                :percentage="getPercent(instanceStats?.online, instanceStats?.total)"
-                status="success"
-                :show-indicator="true"
+          <div class="status-distribution">
+            <!-- 堆叠进度条 -->
+            <div class="stacked-bar">
+              <div
+                v-if="instanceStats?.online"
+                class="bar-segment bg-success"
+                :style="{ width: getPercent(instanceStats?.online, instanceStats?.total) + '%' }"
+                :title="`${t('instance.status.online')}: ${instanceStats?.online}`"
+              />
+              <div
+                v-if="instanceStats?.degraded"
+                class="bar-segment bg-degraded"
+                :style="{ width: getPercent(instanceStats?.degraded, instanceStats?.total) + '%' }"
+                :title="`${t('instance.status.degraded')}: ${instanceStats?.degraded}`"
+              />
+              <div
+                v-if="instanceStats?.offline"
+                class="bar-segment bg-offline"
+                :style="{ width: getPercent(instanceStats?.offline, instanceStats?.total) + '%' }"
+                :title="`${t('instance.status.offline')}: ${instanceStats?.offline}`"
+              />
+              <div
+                v-if="instanceStats?.error"
+                class="bar-segment bg-error"
+                :style="{ width: getPercent(instanceStats?.error, instanceStats?.total) + '%' }"
+                :title="`${t('instance.status.error')}: ${instanceStats?.error}`"
+              />
+              <div
+                v-if="instanceStats?.suspended"
+                class="bar-segment bg-suspended"
+                :style="{ width: getPercent(instanceStats?.suspended, instanceStats?.total) + '%' }"
+                :title="`${t('instance.status.suspended')}: ${instanceStats?.suspended}`"
               />
             </div>
-            <div class="flex items-center gap-4">
-              <span class="w-16 shrink-0">{{ t('instance.status.offline') }}</span>
-              <n-progress
-                type="line"
-                :percentage="getPercent(instanceStats?.offline, instanceStats?.total)"
-                status="warning"
-                :show-indicator="true"
-              />
+            <!-- 图例 -->
+            <div class="legend">
+              <div class="legend-item">
+                <span class="legend-dot bg-success" />
+                <span class="legend-label">{{ t('instance.status.online') }}</span>
+                <span class="legend-value">{{ instanceStats?.online || 0 }}</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot bg-degraded" />
+                <span class="legend-label">{{ t('instance.status.degraded') }}</span>
+                <span class="legend-value">{{ instanceStats?.degraded || 0 }}</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot bg-offline" />
+                <span class="legend-label">{{ t('instance.status.offline') }}</span>
+                <span class="legend-value">{{ instanceStats?.offline || 0 }}</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot bg-error" />
+                <span class="legend-label">{{ t('instance.status.error') }}</span>
+                <span class="legend-value">{{ instanceStats?.error || 0 }}</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot bg-suspended" />
+                <span class="legend-label">{{ t('instance.status.suspended') }}</span>
+                <span class="legend-value">{{ instanceStats?.suspended || 0 }}</span>
+              </div>
             </div>
-            <div class="flex items-center gap-4">
-              <span class="w-16 shrink-0">{{ t('instance.status.error') }}</span>
-              <n-progress
-                type="line"
-                :percentage="getPercent(instanceStats?.error, instanceStats?.total)"
-                status="error"
-                :show-indicator="true"
-              />
-            </div>
-          </n-space>
+          </div>
         </n-card>
       </n-gi>
     </n-grid>
@@ -211,7 +256,6 @@ import { useI18n } from 'vue-i18n'
 import {
   NCard,
   NStatistic,
-  NProgress,
   NGrid,
   NGi,
   NSpace,
@@ -236,13 +280,16 @@ interface TenantStats {
   active: number
   pending: number
   suspended: number
+  byPlan?: Record<string, number>
 }
 
 interface InstanceStats {
   total: number
   online: number
   offline: number
+  degraded: number
   error: number
+  suspended: number
 }
 
 interface RecentEvent {
@@ -256,7 +303,6 @@ interface RecentEvent {
 const tenantStats = ref<TenantStats | null>(null)
 const instanceStats = ref<InstanceStats | null>(null)
 const loadingTrend = ref(false)
-const loadingSubscription = ref(false)
 const loadingEvents = ref(false)
 const autoRefresh = ref(true)
 let refreshTimer: ReturnType<typeof setInterval> | null = null
@@ -310,6 +356,8 @@ async function loadStats() {
     ])
     tenantStats.value = tenants as TenantStats
     instanceStats.value = instances as InstanceStats
+    // 更新订阅分布（基于 tenantStats.byPlan）
+    updateSubscriptionDistribution()
   } catch {
     // ignore
   }
@@ -351,33 +399,38 @@ async function loadTradingTrend() {
   }
 }
 
-async function loadSubscriptionDistribution() {
-  loadingSubscription.value = true
-  try {
-    const result = await api.subscriptions.list() as any
-    const plans = Array.isArray(result) ? result : (result.data || [])
-    if (plans.length > 0) {
-      subscriptionData.value = plans.map((plan: any) => ({
-        name: plan.name,
-        value: plan.tenantCount || Math.floor(Math.random() * 50) + 10,
-      }))
-    } else {
-      subscriptionData.value = [
-        { name: t('tenant.plans.trial'), value: 15, color: '#909399' },
-        { name: t('tenant.plans.basic'), value: 35, color: '#18a058' },
-        { name: t('tenant.plans.professional'), value: 30, color: '#2080f0' },
-        { name: t('tenant.plans.enterprise'), value: 20, color: '#f0a020' },
-      ]
+function updateSubscriptionDistribution() {
+  // 使用 tenantStats.byPlan 数据构建订阅分布
+  const byPlan = tenantStats.value?.byPlan || {}
+
+  // 套餐配置：名称、颜色
+  const planConfig: Record<string, { label: string; color: string }> = {
+    TRIAL: { label: t('tenant.plans.trial'), color: '#909399' },
+    BASIC: { label: t('tenant.plans.basic'), color: '#18a058' },
+    PROFESSIONAL: { label: t('tenant.plans.professional'), color: '#2080f0' },
+    ENTERPRISE: { label: t('tenant.plans.enterprise'), color: '#f0a020' },
+  }
+
+  // 构建饼图数据，只包含有租户的套餐
+  const data: { name: string; value: number; color: string }[] = []
+  for (const [plan, count] of Object.entries(byPlan)) {
+    if (count > 0) {
+      const config = planConfig[plan] || { label: plan, color: '#666' }
+      data.push({
+        name: config.label,
+        value: count,
+        color: config.color,
+      })
     }
-  } catch {
+  }
+
+  // 如果没有数据，显示空状态提示
+  if (data.length === 0) {
     subscriptionData.value = [
-      { name: t('tenant.plans.trial'), value: 15, color: '#909399' },
-      { name: t('tenant.plans.basic'), value: 35, color: '#18a058' },
-      { name: t('tenant.plans.professional'), value: 30, color: '#2080f0' },
-      { name: t('tenant.plans.enterprise'), value: 20, color: '#f0a020' },
+      { name: t('common.noData'), value: 1, color: '#e0e0e0' },
     ]
-  } finally {
-    loadingSubscription.value = false
+  } else {
+    subscriptionData.value = data
   }
 }
 
@@ -424,9 +477,8 @@ async function loadRecentEvents() {
 
 async function loadAllData() {
   await Promise.all([
-    loadStats(),
+    loadStats(),  // 包含订阅分布更新
     loadTradingTrend(),
-    loadSubscriptionDistribution(),
     loadRecentEvents(),
   ])
 }
@@ -458,6 +510,29 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* 统计卡片样式 */
+.stat-card :deep(.n-statistic) {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-card :deep(.n-statistic-value) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat-card :deep(.n-statistic-value__prefix) {
+  display: flex;
+  align-items: center;
+}
+
+.stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .text-success {
   color: var(--success-color);
 }
@@ -469,5 +544,91 @@ onUnmounted(() => {
 }
 .text-error {
   color: var(--error-color);
+}
+
+/* 堆叠进度条样式 */
+.status-distribution {
+  padding: 8px 0;
+}
+
+.stacked-bar {
+  display: flex;
+  height: 24px;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: var(--n-border-color, #e0e0e6);
+}
+
+.bar-segment {
+  height: 100%;
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+
+.bar-segment:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.bar-segment:last-child {
+  border-radius: 0 4px 4px 0;
+}
+
+.bar-segment:only-child {
+  border-radius: 4px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-label {
+  font-size: 13px;
+  color: var(--n-text-color-2, #666);
+}
+
+.legend-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--n-text-color-1, #333);
+}
+
+.bg-success {
+  background-color: var(--success-color, #18a058);
+}
+
+.bg-warning {
+  background-color: var(--warning-color, #f0a020);
+}
+
+.bg-error {
+  background-color: var(--error-color, #d03050);
+}
+
+.bg-degraded {
+  background-color: #e6a23c; /* 橙色 - 降级 */
+}
+
+.bg-offline {
+  background-color: #909399; /* 灰色 - 离线 */
+}
+
+.bg-suspended {
+  background-color: #a0a0a0; /* 浅灰色 - 已暂停 */
 }
 </style>

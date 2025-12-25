@@ -2,7 +2,7 @@ import axios, { type AxiosInstance, type AxiosError, type InternalAxiosRequestCo
 import { useAuthStore } from '@/stores/auth'
 import router from '@/router'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+const baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 
 const api: AxiosInstance = axios.create({
   baseURL,
@@ -116,5 +116,5 @@ export const put = <T>(url: string, data?: any) =>
 export const patch = <T>(url: string, data?: any) =>
   api.patch<T>(url, data).then((res) => unwrapResponse<T>(res.data))
 
-export const del = <T>(url: string) =>
-  api.delete<T>(url).then((res) => unwrapResponse<T>(res.data))
+export const del = <T>(url: string, data?: any) =>
+  api.delete<T>(url, { data }).then((res) => unwrapResponse<T>(res.data))

@@ -19,9 +19,11 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Global prefix
+  // Global prefix (exclude health endpoints for Docker/K8s probes)
   const apiPrefix = configService.get<string>('API_PREFIX') || 'api/v1';
-  app.setGlobalPrefix(apiPrefix);
+  app.setGlobalPrefix(apiPrefix, {
+    exclude: ['health', 'health/ready', 'health/live'],
+  });
 
   // Validation
   app.useGlobalPipes(

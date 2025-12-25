@@ -33,14 +33,22 @@
                 </a>
               </n-descriptions-item>
               <n-descriptions-item label="租户代码">{{ instance?.tenant?.code }}</n-descriptions-item>
-              <n-descriptions-item label="主机地址">{{ instance?.host }}</n-descriptions-item>
-              <n-descriptions-item label="端口">{{ instance?.port }}</n-descriptions-item>
+              <n-descriptions-item label="服务器IP">{{ instance?.serverIp || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="主机地址">{{ instance?.host }}:{{ instance?.port }}</n-descriptions-item>
               <n-descriptions-item label="版本">{{ instance?.version || '-' }}</n-descriptions-item>
               <n-descriptions-item label="最后健康检查">
                 {{ instance?.lastHealthCheck ? formatDate(instance.lastHealthCheck) : '-' }}
               </n-descriptions-item>
-              <n-descriptions-item label="最大会话数">{{ instance?.maxSessions }}</n-descriptions-item>
-              <n-descriptions-item label="最大Manager数">{{ instance?.maxManagers }}</n-descriptions-item>
+              <n-descriptions-item label="最大会话数">
+                {{ getMaxSessions() }}
+                <n-tag v-if="instance?.maxSessions" size="small" type="info" class="ml-2">实例级</n-tag>
+                <n-tag v-else size="small" class="ml-2">租户级</n-tag>
+              </n-descriptions-item>
+              <n-descriptions-item label="最大Manager数">
+                {{ getMaxManagers() }}
+                <n-tag v-if="instance?.maxManagers" size="small" type="info" class="ml-2">实例级</n-tag>
+                <n-tag v-else size="small" class="ml-2">租户级(共享)</n-tag>
+              </n-descriptions-item>
               <n-descriptions-item label="创建时间">
                 {{ formatDate(instance?.createdAt) }}
               </n-descriptions-item>
@@ -76,16 +84,6 @@
               </n-space>
             </div>
           </n-card>
-
-          <!-- MT5 Servers -->
-          <n-card title="MT5 服务器配置">
-            <n-data-table
-              :columns="mt5Columns"
-              :data="instance?.mt5Servers || []"
-              :pagination="false"
-            />
-            <n-empty v-if="!instance?.mt5Servers?.length" description="暂无MT5服务器配置" />
-          </n-card>
         </n-gi>
 
         <!-- Health Data -->
@@ -94,21 +92,25 @@
             <div v-if="instance?.healthData" class="space-y-3">
               <div class="flex-between py-2 border-b border-base">
                 <span class="text-secondary">运行时间</span>
-                <span>{{ formatUptime(instance.healthData.uptime) }}</span>
+                <span>{{ formatUptime(instance.healthData.uptime_seconds || instance.healthData.uptime) }}</span>
               </div>
               <div class="flex-between py-2 border-b border-base">
                 <span class="text-secondary">活跃会话</span>
-                <span>{{ instance.healthData.activeSessions || 0 }}</span>
+                <span>{{ instance.healthData.activeSessions || instance.healthData.metrics?.connections?.total || 0 }}</span>
               </div>
               <div class="flex-between py-2 border-b border-base">
                 <span class="text-secondary">总连接数</span>
-                <span>{{ instance.healthData.totalConnections || 0 }}</span>
+                <span>{{ instance.healthData.totalConnections || instance.healthData.metrics?.connections?.total || 0 }}</span>
+              </div>
+              <div class="flex-between py-2 border-b border-base">
+                <span class="text-secondary">内存占用MB</span>
+                <span>{{ getProcessMemory(instance.healthData) }} MB</span>
               </div>
               <div class="flex-between py-2">
-                <span class="text-secondary">内存使用</span>
+                <span class="text-secondary">内存使用(比例)</span>
                 <n-progress
                   type="line"
-                  :percentage="getMemoryPercent(instance.healthData.memory)"
+                  :percentage="getMemoryPercent(instance.healthData)"
                   :show-indicator="true"
                   style="width: 120px"
                 />
@@ -141,7 +143,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, h, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   NCard,
@@ -153,13 +155,11 @@ import {
   NGi,
   NDescriptions,
   NDescriptionsItem,
-  NDataTable,
   NSpace,
   NProgress,
   NEmpty,
   useMessage,
   useDialog,
-  type DataTableColumns,
 } from 'naive-ui'
 import { api } from '@/api'
 import dayjs from 'dayjs'
@@ -174,23 +174,9 @@ const loading = ref(false)
 const instance = ref<any>(null)
 const showApiKey = ref(false)
 
-interface MT5Server {
-  name: string
-  host: string
-  port: number
-  isDefault: boolean
-}
-
-const mt5Columns: DataTableColumns<MT5Server> = [
-  { title: '名称', key: 'name' },
-  { title: '地址', key: 'host' },
-  { title: '端口', key: 'port' },
-  {
-    title: '默认',
-    key: 'isDefault',
-    render: (row) => row.isDefault ? h(NTag, { type: 'success', size: 'small' }, () => '默认') : null,
-  },
-]
+// 自动刷新配置
+const autoRefreshInterval = 10000 // 10秒
+let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 function getStatusText(status: string | undefined) {
   if (!status) return ''
@@ -199,6 +185,7 @@ function getStatusText(status: string | undefined) {
     OFFLINE: '离线',
     MAINTENANCE: '维护中',
     ERROR: '错误',
+    DEGRADED: '降级',
   }
   return texts[status] || status
 }
@@ -210,6 +197,7 @@ function getStatusType(status: string | undefined): 'default' | 'info' | 'succes
     OFFLINE: 'warning',
     MAINTENANCE: 'info',
     ERROR: 'error',
+    DEGRADED: 'warning',
   }
   return types[status] || 'default'
 }
@@ -232,9 +220,36 @@ function maskApiKey(key: string | undefined) {
   return key.substring(0, 8) + '••••••••' + key.substring(key.length - 4)
 }
 
-function getMemoryPercent(memory: { used: number; total: number } | undefined) {
-  if (!memory || !memory.total) return 0
-  return Math.round((memory.used / memory.total) * 100)
+function getMemoryPercent(healthData: any) {
+  if (!healthData) return 0
+  // 优先使用 metrics.memory_usage_percent
+  if (healthData.metrics?.memory_usage_percent !== undefined) {
+    return Math.round(healthData.metrics.memory_usage_percent)
+  }
+  // 兼容旧格式 memory.used / memory.total
+  if (healthData.memory?.total) {
+    return Math.round((healthData.memory.used / healthData.memory.total) * 100)
+  }
+  return 0
+}
+
+function getProcessMemory(healthData: any) {
+  if (!healthData) return 0
+  // 使用 process_memory_mb (中间件进程内存)
+  if (healthData.metrics?.process_memory_mb !== undefined) {
+    return healthData.metrics.process_memory_mb.toFixed(2)
+  }
+  return 0
+}
+
+function getMaxSessions() {
+  // 优先使用实例级，否则使用租户级
+  return instance.value?.maxSessions || instance.value?.tenant?.maxSessions || 100
+}
+
+function getMaxManagers() {
+  // 优先使用实例级，否则使用租户级(所有实例共享)
+  return instance.value?.maxManagers || instance.value?.tenant?.maxManagerAccounts || 5
 }
 
 async function loadInstance() {
@@ -245,6 +260,30 @@ async function loadInstance() {
     message.error('加载实例信息失败')
   } finally {
     loading.value = false
+  }
+}
+
+// 静默刷新（不显示loading状态，同时执行健康检查以获取最新数据）
+async function silentRefresh() {
+  try {
+    // 先触发健康检查以更新后端数据
+    await api.instances.healthCheck(instanceId).catch(() => {})
+    // 然后获取最新数据
+    instance.value = await api.instances.get(instanceId)
+  } catch {
+    // 静默失败，不显示错误
+  }
+}
+
+function startAutoRefresh() {
+  stopAutoRefresh()
+  refreshTimer = setInterval(silentRefresh, autoRefreshInterval)
+}
+
+function stopAutoRefresh() {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
   }
 }
 
@@ -312,6 +351,11 @@ function deleteInstance() {
 
 onMounted(() => {
   loadInstance()
+  startAutoRefresh()
+})
+
+onUnmounted(() => {
+  stopAutoRefresh()
 })
 </script>
 

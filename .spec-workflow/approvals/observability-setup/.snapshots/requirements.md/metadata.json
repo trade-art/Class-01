@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/observability-setup/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-05T14:54:22.628Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764946462598_nafrflpi0",
+      "approvalTitle": "Observability Setup Requirements"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-05T14:55:00.879Z",
+      "trigger": "approved",
+      "approvalId": "approval_1764946462598_nafrflpi0",
+      "approvalTitle": "Observability Setup Requirements"
+    }
+  ]
+}
